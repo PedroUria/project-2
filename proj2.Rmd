@@ -25,7 +25,6 @@ package_apply_all <- function(list.of.packages, func) {
 }
 ```
 
-
 ```{r imports, include=FALSE}
 package_apply_all(
   c(
@@ -35,8 +34,6 @@ package_apply_all(
     'tidyr' # needed for the gather function
   ), require)
 ```
-
-#Initial Data Gathering and Cleaning
 
 ```{r helpers, include=FALSE}
 # Pull in Consumer Price Index Data from 
@@ -60,7 +57,21 @@ TODO: Expand discussion of background some/etc...
 
 # Exploratory Data Analysis
 
-
+```{r initialize}
+# oscars data
+pat.oscar_won <- "Oscar_.*_won$"
+pat.oscar_nom <- "Oscar_.*_nominated$"
+oscars <- read_csv("oscars.csv", col_types = cols()) %>% mutate(
+  # Adjust gross field by Consumer Price Index.
+  # cpif provides annual average CPI for specified year
+  # data provided by the Burea of Labor Statistics website
+  # (implementation included in full Rmd document)
+  sc.gross = gross * cpif(2000)/cpif(year) # "In 2000 dollars"
+) %>% 
+  # mutate oscars won and oscars nominated cols/variables to factor types
+  mutate_at(vars(matches(pat.oscar_won)), funs(factor)) %>%
+  mutate_at(vars(matches(pat.oscar_nom)), funs(factor))
+```
 
 # Model Building
 
@@ -82,21 +93,7 @@ What does the model tell us?
 
 Were we able to answer the question?
 
-```{r initialize}
-# oscars data
-pat.oscar_won <- "Oscar_.*_won$"
-pat.oscar_nom <- "Oscar_.*_nominated$"
-oscars <- read_csv("oscars.csv", col_types = cols()) %>% mutate(
-  # Adjust gross field by Consumer Price Index.
-  # cpif provides annual average CPI for specified year
-  # data provided by the Burea of Labor Statistics website
-  # (implementation included in full Rmd document)
-  sc.gross = gross * cpif(2000)/cpif(year) # "In 2000 dollars"
-) %>% 
-  # mutate oscars won and oscars nominated cols/variables to factor types
-  mutate_at(vars(matches(pat.oscar_won)), funs(factor)) %>%
-  mutate_at(vars(matches(pat.oscar_nom)), funs(factor))
-```
+
 
 ```{r currency_validation}
 # Validation of currency adjustment
