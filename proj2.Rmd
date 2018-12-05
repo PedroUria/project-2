@@ -282,6 +282,13 @@ oscars$synopsis <- NULL
 oscars$gross <- NULL 
 oscars$Oscars_win_count <- NULL
 
+# Drops some others... 
+oscars$year <- NULL
+oscars$release_date <- NULL
+oscars$Oscar_nominated_categories <- NULL 
+
+# Drops categories for other awards (apporach 2)
+
 # Drops the Oscars_category_won columns (will use them later as targets, but for now we cannot use them to predict)
 oscars$Oscar_Best_Actor_won <- NULL
 oscars$Oscar_Best_Actress_won <- NULL
@@ -361,9 +368,8 @@ X_train_m <- model.matrix(year~., X_train)
 X_test_m <- model.matrix(year~., X_test)
 
 # Trains the model
-#TODO: shouldn't we specify linking function?
 oscars_train_ridge_logit <- glmnet(X_train_m, y_train, alpha=0, nlambda=100,
-                                 lambda.min.ratio=.0001)
+                                 lambda.min.ratio=.0001, family = binomial(link = "logit"))
 
 # Tests the model
 ridge_probs_test_pred <- predict.glmnet(oscars_train_ridge_logit, X_test_m, type="response")
@@ -386,7 +392,7 @@ Lasso Logistic Regression
 
 ```{r}
 # Trains the model
-oscars_train_lasso_logit <- glmnet(X_train_m, y_train, family="gaussian", alpha=1, nlambda=100,
+oscars_train_lasso_logit <- glmnet(X_train_m, y_train, family=binomial(link = "logit"), alpha=1, nlambda=100,
                                  lambda.min.ratio=.0001)
 
 # Tests the model
