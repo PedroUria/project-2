@@ -32,8 +32,7 @@ package_apply_all(
     'readr', # for loading data from various formats
     'dplyr', # because we all need a little magic
     'ggplot2', # pretty graphs
-    'tidyr', # needed for the gather function
-    'data.table' # needed to drop some missing values
+    'tidyr' # needed for the gather function
   ), require)
 ```
 
@@ -113,13 +112,12 @@ oscars <- oscars %>% mutate(
 )
 ```
 
-
 ### Awards_wins
 
 `awards_wins`... does it count the Oscars too?
 ```{r}
 # Gets the movies that won Oscars for best picture 
-oscars_won_best_picture <- subset(oscars, Oscar_Best_Picture_won == 1)
+oscars_won_best_picture <- subset(oscars, Oscar_Best_Picture_won == "Yes")
 dim(oscars_won_best_picture)
 #View(head(oscars_won_best_picture[c(1:40)]))
 # Gets the first movie of such list
@@ -169,12 +167,12 @@ unrated_index =  as.numeric(rownames(subset(oscars, certificate == "Unrated")[c(
 
 # Checks if any of them won an oscar
 for(i in 1:nrow(oscars[not_rated_index, ])){
-  if(oscars[not_rated_index, ]$Oscars_won_some[i]){
+  if(oscars[not_rated_index, ]$Oscars_won_some[i] == "Yes"){
     print("Yes")
   }
 }
 for(i in 1:nrow(oscars[unrated_index, ])){
-  if(oscars[unrated_index, ]$Oscars_won_some[i]){
+  if(oscars[unrated_index, ]$Oscars_won_some[i] == "Yes"){
     print("Yes")
   }
 }
@@ -184,8 +182,8 @@ Alright, let's drop'em.
 
 ```{r}
 dim(oscars)
-drop_index = c(not_rated_index, unrated_index)
-oscars = oscars[-drop_index,]
+# https://github.com/tidyverse/dplyr/issues/3196
+oscars = oscars %>% filter(certificate != "Not Rated" | is.na(certificate)) %>% filter(certificate != "Unrated" | is.na(certificate))
 dim(oscars)
 ```
 
@@ -207,7 +205,7 @@ If we look up these titles in IMDB, they are not rated. Let's check once again i
 
 ```{r}
 for(i in titles_missing_values){
-  if(subset(oscars, movie == i)$Oscars_won_some != 0){
+  if(subset(oscars, movie == i)$Oscars_won_some == "Yes"){
     print("Yes")}
 }
 ```
@@ -215,8 +213,7 @@ for(i in titles_missing_values){
 Nop, let's drop them too.
 
 ```{r}
-oscars = data.table(oscars)
-oscars = na.omit(oscars, c("certificate"))
+oscars = oscars %>% filter(is.na(certificate) == FALSE)
 dim(oscars)
 ```
 
@@ -237,11 +234,12 @@ unique(oscars$certificate)
 ### Some more preprocessing:
 
 ```{r}
-# Drops movie and movie_id, synopsis and gross
+# Drops movie and movie_id, synopsis, gross and Oscars_win_count
 oscars$movie <- NULL
 oscars$movie_id <- NULL 
 oscars$synopsis <- NULL 
 oscars$gross <- NULL 
+oscars$Oscars_win_count <- NULL
 
 # Drops the Oscars_category_won columns (will use them later as targets, but for now we cannot use them to predict)
 oscars$Oscar_Best_Actor_won <- NULL
@@ -254,7 +252,7 @@ oscars$Oscar_Best_Supporting_Actor_won <- NULL
 oscars$Oscar_Best_Supporting_Actress_won <- NULL
 ```
 
-And for when the rest of the preprocessing is done, this is for splitting. I would say let's use from 2000 to 2012 (75%) for training and from 2013 to 2016 for testing.
+And for when the rest of the preprocessing is done, this is for splitting. I would say let's use from 2000 to 2012 (75%) for training and from 2013 to 2016 for testing. No need to stratify as we are not doing a random split. 
 ```{r}
 # Splits by years
 oscars_train <- subset(oscars, year %in% c(2000:2012)) 
@@ -269,7 +267,113 @@ X_test <- oscars_test
 X_test$Oscars_won_some <- NULL
 
 # Checking if our new objects make sense
-y_train
-sum(y_train)
+head(y_train)
 sapply(X_train, typeof)
+```
+
+Standardizing ([source](https://machinelearningmastery.com/pre-process-your-dataset-in-r/)).
+```{r}
+scaleParam <- preProcess(oscars_train, method=c("center", "scale"))
+oscars_train <- predict(scaleParam, oscars_train)
+oscars_test <- predict(scaleParam, oscars_test)
+
+scaleParam <- preProcess(X_train, method=c("center", "scale"))
+X_train <- predict(scaleParam, X_train)
+X_test <- predict(scaleParam, X_test)
+
+scaleParam <- preProcess(y_train, method=c("center", "scale"))
+y_train <- predict(scaleParam, y_train)
+y_test <- predict(scaleParam, y_test)
+```
+
+### Code for some models
+
+Logistic Regression
+
+```{r}
+# Trains the model
+oscars_train_logit <-  glm(Oscars_won_some~.,
+                 family = binomial(link = "logit"), data = oscars_train)
+summary(oscars_train_logit)
+
+# Tests the model
+prob_test_pred <- predict.glm(oscars_train_logit,oscars_test,type='response')
+score <- sum(ifelse(prob_test_pred > 0.5,1,0)==y_test)/length(y_test)
+score
+
+# ROC Curve
+prob=plogis(predict.glm(oscars_train_logit, type = c("response")))
+head(prob)
+h <- roc(Oscars_won_some~prob, data=oscars_train)
+plot(h)
+# Area Under the Curve
+auc(h)
+
+# Prints the predicted probabilities of not winning any oscar (I think this is it because "NO" comes first for both y_train and y_test) for each movie
+prob_test_pred
+```
+
+Ridge Logistic Regression
+
+```{r}
+X_train_m <- model.matrix(year~., X_train)
+X_test_m <- model.matrix(year~., X_test)
+
+# Trains the model
+oscars_train_ridge_logit <- glmnet(X_train_m, y_train, alpha=0, nlambda=100,
+                                 lambda.min.ratio=.0001)
+
+# Tests the model
+ridge_probs_test_pred <- predict.glmnet(oscars_train_ridge_logit, X_test_m, type="response")
+score <- sum(ifelse(ridge_probs_test_pred > 0.5,1,0)==y_test)/length(y_test)
+score
+
+# ROC Curve
+prob_ridge=plogis(predict.glm(oscars_train_ridge_logit, type = c("response")))
+head(prob_ridge)
+h <- roc(Oscars_won_some~prob_ridge, data=oscars_train)
+plot(h)
+# Area Under the Curve
+auc(h)
+
+# Prints the predicted probabilities of not winning any oscar for each movie
+ridge_probs_test_pred
+```
+
+Lasso Logistic Regression
+
+```{r}
+# Trains the model
+oscars_train_lasso_logit <- glmnet(X_train_m, y_train, family="gaussian", alpha=1, nlambda=100,
+                                 lambda.min.ratio=.0001)
+
+# Tests the model
+lasso_probs_test_pred <- predict.glmnet(oscars_train_lasso_logit, X_test_m, type="response")
+score <- sum(ifelse(lasso_probs_test_pred > 0.5,1,0)==y_test)/length(y_test)
+score
+
+# ROC Curve
+prob_lasso=plogis(predict.glm(oscars_train_lasso_logit, type = c("response")))
+head(prob_lasso)
+h <- roc(Oscars_won_some~prob_lasso, data=oscars_train)
+plot(h)
+# Area Under the Curve
+auc(h)
+
+# Prints the predicted probabilities of not winning any oscar for each movie
+oscars_train_lasso_logit
+```
+
+Decision Tree
+
+
+```{r}
+
+```
+
+Cross-Validation and Hyperparameter Tuning
+
+TODO!
+```{r}
+
 ```
