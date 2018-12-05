@@ -36,7 +36,9 @@ package_apply_all(
   ), require)
 ```
 
-```{r helpers}
+#Initial Data Gathering and Cleaning
+
+```{r helpers, include=FALSE}
 # Pull in Consumer Price Index Data from 
 # Burea of Labor Statistics to account for inflation
 cpi <- read_csv('CPI_20181201.csv', col_types = cols())
@@ -50,19 +52,54 @@ cpif <- function(year) {
 
 ```
 
+# Stating the Question
+
+Can we predict how likely a movie is to win an Oscar given information about that movie being nominated to, or winning other awards prior to the Oscars?
+
+TODO: Expand discussion of background some/etc...
+
+# Exploratory Data Analysis
+
+
+
+# Model Building
+
+Discussion of choice of model.. both logistic, and penalized for comparison to ensure best possible model... etc...
+
+## Logistic Regression
+
+### Model Validation/Testing
+
+## Penalized Logistic Regression
+
+### Model Validation/Testing
+
+# Interpret (In detail what do the models tell us)
+
+What does the model tell us?
+
+# Communicate (Conclusion?)
+
+Were we able to answer the question?
+
 ```{r initialize}
 # oscars data
 pat.oscar_won <- "Oscar_.*_won$"
 pat.oscar_nom <- "Oscar_.*_nominated$"
 oscars <- read_csv("oscars.csv", col_types = cols()) %>% mutate(
+  # Adjust gross field by Consumer Price Index.
+  # cpif provides annual average CPI for specified year
+  # data provided by the Burea of Labor Statistics website
+  # (implementation included in full Rmd document)
   sc.gross = gross * cpif(2000)/cpif(year) # "In 2000 dollars"
 ) %>% 
+  # mutate oscars won and oscars nominated cols/variables to factor types
   mutate_at(vars(matches(pat.oscar_won)), funs(factor)) %>%
   mutate_at(vars(matches(pat.oscar_nom)), funs(factor))
 ```
 
 ```{r currency_validation}
-# probably not something to keep... but still interesting... 
+# Validation of currency adjustment
 currency_info <- oscars %>% select(
   gross, sc.gross, year
 ) %>% mutate(
@@ -79,6 +116,10 @@ currency_info %>%
   ggplot(aes(x=year, y=value, colour=key)) + 
   geom_line()
 ```
+
+The CPI based adjustment seems to have behaved as expected.
+
+##
 
 ## Pedro's issues
 
@@ -320,6 +361,7 @@ X_train_m <- model.matrix(year~., X_train)
 X_test_m <- model.matrix(year~., X_test)
 
 # Trains the model
+#TODO: shouldn't we specify linking function?
 oscars_train_ridge_logit <- glmnet(X_train_m, y_train, alpha=0, nlambda=100,
                                  lambda.min.ratio=.0001)
 
