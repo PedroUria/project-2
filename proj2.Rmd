@@ -157,22 +157,18 @@ oscars <- oscars %>% mutate(
 # Gets the movies that won Oscars for best picture 
 oscars_won_best_picture <- subset(oscars, Oscar_Best_Picture_won == "Yes")
 dim(oscars_won_best_picture)
-#View(head(oscars_won_best_picture[c(1:40)]))
 # Gets the first movie of such list
 lord_of_the_rings_king <- head(oscars_won_best_picture, 1)
-#View(lord_of_the_rings_king)
 # Gets the number of awards it won, not counting the Oscars 
 num_awards_won <- 0
 # For every column name in the Series
 for (i in names(lord_of_the_rings_king)){
-  # If "won"" is in such name
-  if(grepl("won", i) == TRUE){
-    # And if "Oscar" and "categories" is not
+  # If "won"" is in the column name at the end
+  if(grepl("won$", i) == TRUE){
+    # And if "Oscar" is not in the column name
      if(grepl("Oscar", i) == FALSE){
-       if(grepl("categories", i) == FALSE){
          # Add to num_awards_won the value of such column
          num_awards_won = num_awards_won + lord_of_the_rings_king[c(i)][[1]]
-       }
       }
   }
 }
