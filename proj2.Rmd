@@ -280,11 +280,20 @@ oscars$gross <- NULL
 oscars$Oscars_win_count <- NULL
 
 # Drops some others... 
-oscars$year <- NULL
 oscars$release_date <- NULL
 oscars$Oscar_nominated_categories <- NULL 
 
 # Drops categories for other awards (apporach 2)
+drop_categories = c()
+for(i in names(oscars)){
+  # If the name ends in "categories"
+  if(grepl("categories$", i) == TRUE){
+    # And if "Oscar" and is not in it
+     if(grepl("Oscar", i) == FALSE)
+         drop_categories = c(drop_categories, i)
+  }
+}
+oscars = oscars[ , -which(names(oscars) %in% drop_categories)]
 
 # Drops the Oscars_category_won columns (will use them later as targets, but for now we cannot use them to predict)
 oscars$Oscar_Best_Actor_won <- NULL
@@ -302,6 +311,12 @@ And for when the rest of the preprocessing is done, this is for splitting. I wou
 # Splits by years
 oscars_train <- subset(oscars, year %in% c(2000:2012)) 
 oscars_test <- subset(oscars, year %in% c(2013:2016))
+
+# Drops year
+oscars$year <- NULL
+oscars_train$year <- NULL
+oscars_test$year <- NULL
+
 # Gets the target
 y_train = oscars_train$Oscars_won_some
 y_test = oscars_test$Oscars_won_some
