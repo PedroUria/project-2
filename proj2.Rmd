@@ -331,12 +331,19 @@ DropCols = c("genre_Histor","genre_Music")
 gen = gen[,!colnames(gen)%in%DropCols]
 
 oscars = cbind(oscars,gen)
+
+# Changing 0 to "No" and 1 to "Yes"
+for(i in names(gen)){
+  oscars[c(i)][[1]] = ifelse(oscars[c(i)][[1]] == 1, "Yes", "No")
+  oscars[c(i)][[1]] = factor(oscars[c(i)][[1]])
+}
 ```
 
 ### Some more preprocessing:
 
+TODO: Undrop `release_date.month` when it is dealt with.
 ```{r}
-# Drops movie and movie_id, synopsis, gross and Oscars_win_count
+# Drops columns we do not want to predict Oscars_won_some
 drop.cols <- c(
   'movie',
   'movie_id',
@@ -350,11 +357,13 @@ drop.cols <- c(
   'release_date.day-of-month',
   'release_date.day-of-week')
 
-oscars.subset <- oscars %>% 
+oscars <- oscars %>% 
   select(-one_of(drop.cols)) %>%
   select(-matches("categories$")) %>% 
   select(-matches("Oscar_.*_won$"))
-oscars$genre <- NULL
+
+# Going to drop release_date.month for now
+oscars$release_date.month <- NULL
 ```
 
 And for when the rest of the preprocessing is done, this is for splitting. I would say let's use from 2000 to 2012 (75%) for training and from 2013 to 2016 for testing. No need to stratify as we are not doing a random split. 
@@ -392,9 +401,7 @@ scaleParam <- preProcess(X_train, method=c("center", "scale"))
 X_train <- predict(scaleParam, X_train)
 X_test <- predict(scaleParam, X_test)
 
-scaleParam <- preProcess(data.frame(y_train), method=c("center", "scale"))
-y_train <- predict(scaleParam, y_train)
-y_test <- predict(scaleParam, y_test)
+# No need to scale the target
 ```
 
 ### Code for some models
@@ -406,6 +413,39 @@ Logistic Regression
 oscars_train_logit <-  glm(Oscars_won_some~.,
                  family = binomial(link = "logit"), data = oscars_train)
 summary(oscars_train_logit)
+
+# Prints out this error: Error in `contrasts<-`(`*tmp*`, value = contr.funs[1 + isOF[nn]]) : # contrasts can be applied only to factors with 2 or more levels
+
+# It turns out it is because oscars_train only has one level for genre_Documentary
+unique(oscars_train$genre_Documentary)
+# Let's see how many documentaries we have in total
+table(oscars$genre_Documentary)
+# So only one huh?. Let's see which movie it is
+subset(oscars, genre_Documentary == "Yes")
+# Oh damn it, we already dropped the column with the title
+# Well, either way, it didn't won any Oscars and was only nominated for one
+# which was almost surely Best Documentary, which we don't have, so let's drop the column
+oscars$genre_Documentary <- NULL
+oscars_train$genre_Documentary <- NULL
+oscars_test$genre_Documentary <- NULL
+X_train$genre_Documentary <- NULL
+X_test$genre_Documentary <- NULL
+# NOTE: we'll move this up later, I just left it here so you could see the reasoning
+
+# Trains the model
+oscars_train_logit <-  glm(Oscars_won_some~.,
+                 family = binomial(link = "logit"), data = oscars_train)
+#Prints out warnings
+#Warning messages:
+#1: glm.fit: algorithm did not converge 
+#2: glm.fit: fitted probabilities numerically 0 or 1 occurred 
+summary(oscars_train_logit)
+# lol, this is maybe because of the missingness that hasn't been dealt with yet
+sapply(oscars, function(x) sum(is.na(x)))
+# well, actually we don't have that many... because we dropped the categories features
+# for this try. popularity does have a significant number, but even so, not so sure this
+# is the problem... 
+
 
 # Tests the model
 prob_test_pred <- predict.glm(oscars_train_logit,oscars_test,type='response')
