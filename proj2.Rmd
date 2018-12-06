@@ -264,6 +264,74 @@ oscars$certificate = as.numeric(oscars$certificate)
 unique(oscars$certificate)
 ```
 
+### cleanup genre
+```{r}
+# cl
+# get rid of NA's
+#oscars[which(is.na(oscars$genre)==TRUE),]$genre = "none"
+
+# get all of the values parsed by |'s
+genre_unique = unique(oscars$genre)
+# get the actual unique values
+soup = c()
+for(i in 1:length(genre_unique)){
+  soup = append(soup,unlist(strsplit(genre_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+# create a dataframe where the column names are the unique genres
+gen = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(gen) = new_cols
+
+for(i in 1:ncol(gen)){
+  # iterate over columns
+  for(j in 1:nrow(gen)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(gen[i]),oscars$genre[j])==TRUE)){ 
+      gen[j,i] = 1
+      }
+    else{
+      gen[j,i] = 0
+    }
+  }
+}
+
+# we add the prefix "genre", so that the varaibles are easier to identify. 
+colnames(gen) = paste("genre",colnames(gen),sep="_")
+
+# get rid of the mispelling of history... somehow some moves were classified as histor and history
+# assume music and musical are the same genre. 
+gen$genre_History = gen$genre_History + gen$genre_Histor
+gen$genre_Musical = gen$genre_Musical + gen$genre_Music
+
+
+# check for duplicates
+max(gen$genre_History)
+max(gen$genre_Musical)
+# we have them in both, so remove them. 
+
+for(i in 1:length(gen$genre_History)){
+  if(gen$genre_History[i]>1){
+    gen$genre_History[i] =1
+  }
+}
+
+for(i in 1:length(gen$genre_Musical)){
+  if(gen$genre_Musical[i]>1){
+    gen$genre_Musical[i] =1
+  }
+}
+
+# select the columns that are duplicated
+DropCols = c("genre_Histor","genre_Music")
+# remove them from the datframe. 
+
+gen = gen[,!colnames(gen)%in%DropCols]
+
+oscars = cbind(oscars,gen)
+```
 
 ### Some more preprocessing:
 
@@ -286,6 +354,7 @@ oscars.subset <- oscars %>%
   select(-one_of(drop.cols)) %>%
   select(-matches("categories$")) %>% 
   select(-matches("Oscar_.*_won$"))
+oscars$genre <- NULL
 ```
 
 And for when the rest of the preprocessing is done, this is for splitting. I would say let's use from 2000 to 2012 (75%) for training and from 2013 to 2016 for testing. No need to stratify as we are not doing a random split. 
@@ -323,7 +392,7 @@ scaleParam <- preProcess(X_train, method=c("center", "scale"))
 X_train <- predict(scaleParam, X_train)
 X_test <- predict(scaleParam, X_test)
 
-scaleParam <- preProcess(y_train, method=c("center", "scale"))
+scaleParam <- preProcess(data.frame(y_train), method=c("center", "scale"))
 y_train <- predict(scaleParam, y_train)
 y_test <- predict(scaleParam, y_test)
 ```
@@ -1765,73 +1834,3 @@ xw = xw[,!colnames(xw)%in%DropCols]
 dim(xw)
 xw = cbind(xw,wg_ad_scrnply,wg_orig_scrnply)
 ```
-# cleanup genre
-```{r}
-# cl
-# get rid of NA's
-oscars[which(is.na(oscars$genre)==TRUE),]$genre = "none"
-
-# get all of the values parsed by |'s
-genre_unique = unique(oscars$genre)
-# get the actual unique values
-soup = c()
-for(i in 1:length(genre_unique)){
-  soup = append(soup,unlist(strsplit(genre_unique[i],"\\|")))
-}
-new_cols = unique(soup)
-
-# create a dataframe where the column names are the unique genres
-gen = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
-colnames(gen) = new_cols
-
-for(i in 1:ncol(gen)){
-  # iterate over columns
-  for(j in 1:nrow(gen)){
-    # then rows
-    # if the string with the column name is in the string for the awards_won column in the original 
-    # dataset.... give that variable a 1 in the new dataset 
-    if((grepl(colnames(gen[i]),oscars$genre[j])==TRUE)){ 
-      gen[j,i] = 1
-      }
-    else{
-      gen[j,i] = 0
-    }
-  }
-}
-
-# we add the prefix "genre", so that the varaibles are easier to identify. 
-colnames(gen) = paste("genre",colnames(gen),sep="_")
-
-# get rid of the mispelling of history... somehow some moves were classified as histor and history
-# assume music and musical are the same genre. 
-gen$genre_History = gen$genre_History + gen$genre_Histor
-gen$genre_Musical = gen$genre_Musical + gen$genre_Music
-
-
-# check for duplicates
-max(gen$genre_History)
-max(gen$genre_Musical)
-# we have them in both, so remove them. 
-
-for(i in 1:length(gen$genre_History)){
-  if(gen$genre_History[i]>1){
-    gen$genre_History[i] =1
-  }
-}
-
-for(i in 1:length(gen$genre_Musical)){
-  if(gen$genre_Musical[i]>1){
-    gen$genre_Musical[i] =1
-  }
-}
-
-# select the columns that are duplicated
-DropCols = c("genre_Histor","genre_Music")
-# remove them from the datframe. 
-
-gen = gen[,!colnames(gen)%in%DropCols]
-
-oscars = cbind(oscars,gen)
-```
-
-
