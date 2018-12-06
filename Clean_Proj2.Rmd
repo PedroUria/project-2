@@ -1,30 +1,515 @@
 ---
-title: "Clean-proj2"
-author: "Sean Pili"
-date: "December 1, 2018"
-output: html_document
+title: "Oscars... WHAT?"
+authors: Pedro Uria, Sean Pili and Zachary Buckley 
+date: "12/06/2018"
+output:
+  html_document:
+    toc: true
+    theme: united
+    highlight: tango
+    number_sections: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+# Introduction
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## Objectives
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+The goal of this project is to develop models to predict whether a movie will win some kind of Oscar award or not, and potentially .....(TODO). In order to achieve this, we will use a dataset that [BigMl](https://bigml.com/) [put together](https://bigml.com/user/academy_awards/gallery/dataset/5a94302592fb565ed400103b) and used to train a deep neural network to get [perfect predictions](https://blog.bigml.com/2018/03/01/predicting-the-2018-oscar-winners/) for the 8 categories they targeted for 2018. However, this does not mean their model is perfect, as ..... (TODO: source for where they say even they were surprised?).
 
-```{r cars}
-summary(cars)
+## Motivation
+
+The motivation is to use these models to identify the most relevant features that make a movie win an Academy Award, and also to have an edge when betting for the next Oscars winners. TODO: more motivations...?
+
+## The Data
+
+Gathering the data was very straightforward in this case. After coming up with the idea for the project, a simple Google search of: *oscars machine learning* almost directly handed us the dataset. We quickly found [this article](https://medium.com/enrique-dans/and-this-years-oscar-goes-to-bigml-machine-learning-1823837ae3aa), which lead us to BigML. After signing up on their website, we were able to download the dataset for free. However, this would not mean that the data would be ready to be fed to our machine learning algorithms right away... which we easily realized after doing some EDA. BigML combined data from IMDB with entries that specify whether a movie has won some other awards previous to the Oscars.
+
+# Exploratory Data Analysis
+
+```{r install_functions, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+##Helper Functions here for cleanly handling imports
+#install_all - function for installing all packages in a list that aren't available
+#  inspired by https://stackoverflow.com/questions/4090169/elegant-way-to-check-for-missing-packages-and-install-them
+#  ex: install_all(c('readr', 'dplyr'))
+install_all <- function(list.of.packages) {
+  need_install <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+  if(length(need_install)) install.packages(need_install)
+}
+
+# package_apply_all - function for calling install_all on list of packages, then applying a function to them
+#  inspired by https://stackoverflow.com/questions/8175912/load-multiple-packages-at-once
+#  ex: package_apply_all(c('readr', 'dplyr'), require)
+package_apply_all <- function(list.of.packages, func) {
+  install_all(list.of.packages)
+  invisible(lapply(list.of.packages, func, character.only = TRUE))
+}
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r imports, include=FALSE}
+package_apply_all(
+  c(
+    'readr', # for loading data from various formats
+    'dplyr', # because we all need a little magic
+    'ggplot2', # pretty graphs
+    'tidyr', # needed for the gather function
+    'caret', # needed for standardizing
+    'pROC' # needed for ROC curve
+  ), require)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## First Contact
+
+Let's load the data and see what features we have and how large is our dataset
+
+```{r}
+oscars <- read_csv("oscars.csv", col_types = cols())
+#View(head(oscars)) # Go to the .Rdm file and uncomment this line
+# if you want to have a look at the data
+dim(oscars)
+#sapply(oscars, typeof) # Same here
+```
+
+So we have 1183 rows and 119 features. `year` will be useful to make a train-test split later, but we will drop it after that. `movie` and `movie_id` will also be dropped as they are not relevant for prediction. We will need to encode `certificate`, while `duration` is already in a suitable form, and `genre` will have to be converted to dummy variables. `rate` and `metascore` are also fine. We will also drop `synopsis`, which is very unlikely to matter significantly, and which would also require Natural Language Processing, as skill we lack? (TODO: maybe delete the NLP part). `votes` is also fine, while `gross` will need to be modified to account for inflation over the years. We will also drop `release_date` but will use `release_date.month` (at the end of the features) to create a new column `season`, which is known to be a relevant factor in winning an Oscar. `release_date.year`, `release_date.day-of-month` and `release_date.day-of-week` will also be dropped. `user_reviews`, `critic_reviews` and `popularity` are also numerical metrics that come from IMDB, and thus are already on their suitable form. By visual inspection, `awards_wins` and `awards_nominations` seem to count the number of awards and nominations other than the Oscars, but we will have to make sure of this. 
+
+Then we have 16 binary columns saying whether a movie won or was nominated for one of the following Oscars' categories
+
+1. Best Picture  
+2. Best Director  
+3. Best Actor  
+4. Best Actress  
+5. Best Supporting Actor  
+6. Best Supporting Actress  
+7. Best Adapted Screenplay
+8. Best Original Screenplay
+
+As we are concerned with predicting whether a movie will win at least one Oscar or not, we will create such column (to be called `Oscars_won_some`) using these and drop them after doing so. Note that we are only using data from 8 categories... (TODO: argue this..?). With regards to the nominated columns... TODO: We didn't discuss this, did we? Maybe we can use the next feature (see below)
+
+Then we have another column called `Oscars_nominated`, which says for how many categories a movie was nominated for, including the ones not mentioned before. `Oscars_nominated_categories` is its analogous but on text form, indicating the specific nominated categories. We will also drop this one, TODO: right?. 
+
+The rest of the features all follow the same pattern: first we have `award_name_won`, which says how many categories of such award the movie won, and then we have `award_name_won_categories`, a string specifying these categories. `award_name_nominated` and `award_name_nominated_categories` are the same but for nominations instead of wins. We will only use the numerical features, and drop the categorical ones (TODO: mention the other approach too).
+
+## Missing Values
+
+```{r}
+missing_per_column = sapply(oscars, function(x) sum(is.na(x)))
+missing_per_column[missing_per_column != 0]
+```
+
+TODO: Talk about this...
+
+## Quality Checks
+
+Now let's make some quality checks, before diving into preprocessing. Our movies range from
+```{r}
+sort(unique(oscars$year))
+```
+and for each year, we have 
+```{r}
+table(oscars$year)
+```
+about 70 movies, but for 2017 we only have 30. We are thus not going to use this year...
+```{r}
+# Lied about not doing yet any preprocessing...
+oscars = subset(oscars, year != 2017)
+```
+
+One other thing we must make sure of is that we have only 16 winners for each category. TODO: Do this...
+```{r}
+#
+```
+
+OK, so for now the data makes sense. However, it is very clear that our data is heavily imbalanced. TODO: Explain how we will deal with this later... examples: balancing the weights, oversampling? or maybe we don't need to.
+
+Let's also make sure that `awards_wins` does not contain any information regarding the Oscars, as this would not be known for us when making future predictions. 
+
+```{r}
+# Gets the movies that won Oscars for best picture 
+oscars_won_best_picture <- subset(oscars, Oscar_Best_Picture_won == "Yes")
+dim(oscars_won_best_picture)
+# Gets the first movie of such list
+lord_of_the_rings_king <- head(oscars_won_best_picture, 1)
+# Gets the number of awards it won, not counting the Oscars 
+num_awards_won <- 0
+# For every column name in the Series
+for (i in names(lord_of_the_rings_king)){
+  # If "won"" is in the column name at the end
+  if(grepl("won$", i) == TRUE){
+    # And if "Oscar" is not in the column name
+     if(grepl("Oscar", i) == FALSE){
+         # Add to num_awards_won the value of such column
+         num_awards_won = num_awards_won + lord_of_the_rings_king[c(i)][[1]]
+      }
+  }
+}
+# Prints the value of awards_wins
+lord_of_the_rings_king[c("awards_wins")]
+# Prints the number of awards it won, not counting the Oscars
+num_awards_won
+```
+(TODO: maybe do this for more movies, just to be sure). Good! This feature is fair and probably very important. 
+
+I THINK THIS IS ALL FOR THE QUIALITY CHECKS AND ALSO EDA
+
+# Data Preprocessing
+
+Let's proceed on an orderly manner. First, let's get the target column, as it will be useful for later preprocessing. 
+
+```{r oscars_won_some}
+# Pattern to get only the relevant columns
+pat.oscar_won <- "Oscar_.*_won$"
+# sum number of wins identified per row for cols
+tmp.won <- rowSums(
+  oscars %>%
+    mutate_at(
+      vars(matches(pat.oscar_won)),
+      funs(ifelse(. == "No", 0, 1))
+    ) %>% select(matches(pat.oscar_won))
+  )
+
+# set win count variable in oscars df
+oscars <- oscars %>% 
+  mutate(Oscars_win_count = tmp.won)
+
+# Validation
+oscars_won_best_picture <- filter(oscars, Oscar_Best_Picture_won == 'Yes')
+# This movie won 3 oscars, let's see if it checks out
+oscars_won_best_picture$Oscars_win_count[1] == 3
+# This movie won 2 oscars, let's see if it checks out
+oscars_won_best_picture$Oscars_win_count[2] == 2
+# Yeap
+
+# Encodes as factor
+oscars <- oscars %>% mutate(
+  Oscars_won_some = factor(ifelse(Oscars_win_count > 0, "Yes", "No"))
+)
+```
+
+
+Now, let's encode `certificate`, which follows this [system](https://www.wikiwand.com/en/Motion_Picture_Association_of_America_film_rating_system) and this [one](https://www.wikiwand.com/en/TV_parental_guidelines_(US)#/TV-MA). That is, `certificate` is an ordinal variable and needs to be encoded as such (preserving the order).
+```{r}
+# Prints the unique values of the certificate column
+unique(oscars$certificate)
+# Prints the movies "Unrated" and "Not Rated"
+subset(oscars, certificate == "Not Rated")[c("movie")]
+subset(oscars, certificate == "Unrated")[c("movie")]
+```
+
+Let's get rid of these rows. They would only make us create more columns for `certificate`, as we cannot encode them, and they are not well known movies (aside from The Great Beauty...) and did not win any Oscars.
+```{r}
+# Gets the indexes of such rows
+not_rated_index = as.numeric(rownames(subset(oscars, certificate == "Not Rated")[c("movie")]))
+unrated_index =  as.numeric(rownames(subset(oscars, certificate == "Unrated")[c("movie")]))
+
+# Checks if any of them won an oscar
+for(i in 1:nrow(oscars[not_rated_index, ])){
+  if(oscars[not_rated_index, ]$Oscars_won_some[i] == "Yes"){
+    print("Yes")
+  }
+}
+for(i in 1:nrow(oscars[unrated_index, ])){
+  if(oscars[unrated_index, ]$Oscars_won_some[i] == "Yes"){
+    print("Yes")
+  }
+}
+```
+
+Assumption checked. Let us drop them.
+```{r}
+dim(oscars)
+# https://github.com/tidyverse/dplyr/issues/3196
+oscars = oscars %>% filter(certificate != "Not Rated" | is.na(certificate)) %>% filter(certificate != "Unrated" | is.na(certificate))
+dim(oscars)
+```
+
+Now let us treat the missing values...
+```{r}
+unique(oscars$certificate)
+sum(is.na(oscars$certificate))
+```
+
+well, let's actually see if we can get the missing values imputed first.
+```{r}
+titles_missing_values = oscars[is.na(oscars$certificate), ]$movie
+titles_missing_values
+```
+
+If we look up these titles in IMDB, they are not rated. Let's check once again if they won any Oscars:
+```{r}
+for(i in titles_missing_values){
+  if(subset(oscars, movie == i)$Oscars_won_some == "Yes"){
+    print("Yes")}
+}
+```
+
+The did not, so let's drop them too.
+```{r}
+oscars = oscars %>% filter(is.na(certificate) == FALSE)
+dim(oscars)
+```
+
+And finally let's encode it...
+```{r}
+unique(oscars$certificate)
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "PG-13", 3))
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "G", 1))
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "R", 4))
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "PG", 2))
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "TV-MA", 5))
+oscars$certificate = as.numeric(oscars$certificate)
+unique(oscars$certificate)
+```
+
+
+Moving on to `genre`, now we do need to create dummy variables
+```{r}
+# get all of the values parsed by |'s
+genre_unique = unique(oscars$genre)
+# get the actual unique values
+soup = c()
+for(i in 1:length(genre_unique)){
+  soup = append(soup,unlist(strsplit(genre_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+# create a dataframe where the column names are the unique genres
+gen = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(gen) = new_cols
+
+for(i in 1:ncol(gen)){
+  # iterate over columns
+  for(j in 1:nrow(gen)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(gen[i]),oscars$genre[j])==TRUE)){ 
+      gen[j,i] = 1
+      }
+    else{
+      gen[j,i] = 0
+    }
+  }
+}
+
+# we add the prefix "genre", so that the varaibles are easier to identify. 
+colnames(gen) = paste("genre",colnames(gen),sep="_")
+
+# get rid of the mispelling of history... somehow some moves were classified as histor and history
+# assume music and musical are the same genre. 
+gen$genre_History = gen$genre_History + gen$genre_Histor
+gen$genre_Musical = gen$genre_Musical + gen$genre_Music
+
+
+# check for duplicates
+max(gen$genre_History)
+max(gen$genre_Musical)
+# we have them in both, so remove them. 
+
+for(i in 1:length(gen$genre_History)){
+  if(gen$genre_History[i]>1){
+    gen$genre_History[i] =1
+  }
+}
+
+for(i in 1:length(gen$genre_Musical)){
+  if(gen$genre_Musical[i]>1){
+    gen$genre_Musical[i] =1
+  }
+}
+
+# select the columns that are duplicated
+DropCols = c("genre_Histor","genre_Music")
+# remove them from the datframe. 
+
+gen = gen[,!colnames(gen)%in%DropCols]
+
+oscars = cbind(oscars,gen)
+
+# Changing 0 to "No" and 1 to "Yes" and converting to factor
+for(i in names(gen)){
+  oscars[c(i)][[1]] = ifelse(oscars[c(i)][[1]] == 1, "Yes", "No")
+  oscars[c(i)][[1]] = factor(oscars[c(i)][[1]])
+}
+```
+When we tried to run our model, we got this error ("Prints out this error: Error in `contrasts<-`(`*tmp*`, value = contr.funs[1 + isOF[nn]]) : contrasts can be applied only to factors with 2 or more levels"), and it was because there is only one movie that falls into the "documentary" genre, and thus only one level for `genre_documentary`
+```{r}
+table(oscars$genre_Documentary)
+```
+The movie in question is 
+```{r}
+subset(oscars, genre_Documentary == "Yes")$movie
+```
+and [here](https://www.imdb.com/title/tt5278466/awards) are the it received or was nominated for. As it is not that relevant and very annoying (TODO: Find a better way if there is one), let's drop it
+```{r}
+oscars$genre_Documentary <- NULL
+```
+
+The next feature that needs some manipulation is `gross`. As 1 dollar in 2000 is [worth](http://www.in2013dollars.com/2000-dollars-in-2016?amount=1) 1.39 dollars in 2016, we need to account for this inflation. To do this, we will use (TODO: Zach, I think you are better off explaining this haha)
+
+```{r}
+# Pull in Consumer Price Index Data from 
+# Burea of Labor Statistics to account for inflation
+cpi <- read_csv('CPI_20181201.csv', col_types = cols())
+# data ranged from 2000 (1) to 2017 (18)
+# so... year mod 2000 + 1 is the indexing scheme.
+# NOTE: if cpi csv file is changed the indexing scheme will need updating
+cpif <- function(year) {
+  idx <- year %% 2000 + 1
+  cpi$Annual[idx]
+}
+
+pat.oscar_nom <- "Oscar_.*_nominated$"
+oscars = oscars %>% mutate(
+  # Adjust gross field by Consumer Price Index.
+  # cpif provides annual average CPI for specified year
+  # data provided by the Burea of Labor Statistics website
+  # (implementation included in full Rmd document)
+  sc.gross = gross * cpif(2000)/cpif(year) # "In 2000 dollars"
+) %>% 
+  # mutate oscars won and oscars nominated cols/variables to factor types
+  mutate_at(vars(matches(pat.oscar_won)), funs(factor)) %>%
+  mutate_at(vars(matches(pat.oscar_nom)), funs(factor))
+```
+
+```{r currency_validation}
+# Validation of currency adjustment
+currency_info <- oscars %>% select(
+  gross, sc.gross, year
+) %>% mutate(
+  diff = gross - sc.gross
+) %>% group_by(year) %>% summarize(
+  n=n(),
+  diff_mn = mean(diff, na.rm = TRUE),
+  gross_mn = mean(gross, na.rm = TRUE),
+  sc.gross_mn = mean(sc.gross, na.rm = TRUE)
+)
+
+currency_info %>% 
+  gather(key, value, gross_mn, sc.gross_mn) %>%
+  ggplot(aes(x=year, y=value, colour=key)) + 
+  geom_line()
+```
+
+TODO: Use `release_date.month` to create `season`.
+
+All that is left is dropping the undesired columns
+
+```{r}
+drop.cols <- c(
+  'movie',
+  'movie_id',
+  'synopsis',
+  'gross',
+  'Oscars_win_count',
+  'release_date',
+  'Oscar_nominated_categories',
+  'genre',
+  'release_date.year',
+  'release_date.day-of-month',
+  'release_date.day-of-week',
+  'release_date.month')
+oscars <- oscars %>% 
+  select(-one_of(drop.cols)) %>%
+  select(-matches("categories$")) %>% 
+  select(-matches("Oscar_.*_won$"))
+```
+
+and finally let's make sure that we only have the features we want for prediction, and that their types are the right ones (we did not drop `year` yet as we will use it for splitting intro training and testing)
+```{r}
+sapply(oscars, typeof)
+```
+TODO: again.. maybe we should drop the `Oscar_..._nominated` if we are only going to predict `Oscars_won_some` and use only `Oscar_nominated` instead. 
+
+Everything seems fine. Let's move onto splitting the data. Let's use from 2000 to 2012 (75%) for training and from 2013 to 2016 for testing. There is no need to stratify as we are not doing a random split, that is, both train and test sets will have the same proportion of class labels, because we are splitting by years. 
+```{r}
+# Splits by years
+oscars_train <- subset(oscars, year %in% c(2000:2012)) 
+oscars_test <- subset(oscars, year %in% c(2013:2016))
+
+# Drops year
+oscars$year <- NULL
+oscars_train$year <- NULL
+oscars_test$year <- NULL
+
+# Gets the target
+y_train = oscars_train$Oscars_won_some
+y_test = oscars_test$Oscars_won_some
+# Drops the target column
+X_train <- oscars_train
+X_train$Oscars_won_some <- NULL
+X_test <- oscars_test
+X_test$Oscars_won_some <- NULL
+```
+
+The last step before we can train our models is standardizing. By default, R omits standardizing factor variables (TODO: Is this true?), so we do not need to be concerned about that. We will follow [this method](https://machinelearningmastery.com/pre-process-your-dataset-in-r/)
+```{r}
+scaleParam <- preProcess(oscars_train, method=c("center", "scale"))
+oscars_train <- predict(scaleParam, oscars_train)
+oscars_test <- predict(scaleParam, oscars_test)
+
+scaleParam <- preProcess(X_train, method=c("center", "scale"))
+X_train <- predict(scaleParam, X_train)
+X_test <- predict(scaleParam, X_test)
+```
+
+Well... it seems we are ready to train some Machine Learning models!
+
+# Experimental Results and Analysis
+
+## Logistic Regression
+
+### Regular Logistic Regression
+
+```{r}
+# Trains the model
+#oscars_train_logit <-  glm(Oscars_won_some~.,
+#                 family = binomial(link = "logit"), data = oscars_train)
+#Prints out warnings
+#Warning messages:
+#1: glm.fit: algorithm did not converge 
+#2: glm.fit: fitted probabilities numerically 0 or 1 occurred 
+#summary(oscars_train_logit)
+# lol, this is maybe because of the missingness that hasn't been dealt with yet
+#sapply(oscars, function(x) sum(is.na(x)))
+# well, actually we don't have that many... because we dropped the categories features
+# for this try. popularity does have a significant number, but even so, not so sure this
+# is the problem... 
+
+
+# Tests the model
+#prob_test_pred <- predict.glm(oscars_train_logit,oscars_test,type='response')
+#score <- sum(ifelse(prob_test_pred > 0.5,1,0)==y_test)/length(y_test)
+#score
+
+# ROC Curve
+#prob=plogis(predict.glm(oscars_train_logit, type = c("response")))
+#head(prob)
+#h <- roc(Oscars_won_some~prob, data=oscars_train)
+#plot(h)
+# Area Under the Curve
+#auc(h)
+
+# Prints the predicted probabilities of not winning any oscar (I think this is it because "NO" comes first for both y_train and y_test) for each movie
+#prob_test_pred
+```
+
+### Other
+
+### Approaches
+
+## Decision Tree
+
+### Su
+
+### b
+
+### Sections
+
+
+
+# Conclusions 
+
