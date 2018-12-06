@@ -269,37 +269,23 @@ unique(oscars$certificate)
 
 ```{r}
 # Drops movie and movie_id, synopsis, gross and Oscars_win_count
-oscars$movie <- NULL
-oscars$movie_id <- NULL 
-oscars$synopsis <- NULL 
-oscars$gross <- NULL 
-oscars$Oscars_win_count <- NULL
+drop.cols <- c(
+  'movie',
+  'movie_id',
+  'synopsis',
+  'gross',
+  'Oscars_win_count',
+  'release_date',
+  'Oscar_nominated_categories',
+  'genre',
+  'release_date.year',
+  'release_date.day-of-month',
+  'release_date.day-of-week')
 
-# Drops some others... 
-oscars$release_date <- NULL
-oscars$Oscar_nominated_categories <- NULL 
-
-# Drops categories for other awards (apporach 2)
-drop_categories = c()
-for(i in names(oscars)){
-  # If the name ends in "categories"
-  if(grepl("categories$", i) == TRUE){
-    # And if "Oscar" and is not in it
-     if(grepl("Oscar", i) == FALSE)
-         drop_categories = c(drop_categories, i)
-  }
-}
-oscars = oscars[ , -which(names(oscars) %in% drop_categories)]
-
-# Drops the Oscars_category_won columns (will use them later as targets, but for now we cannot use them to predict)
-oscars$Oscar_Best_Actor_won <- NULL
-oscars$Oscar_Best_Actress_won <- NULL
-oscars$Oscar_Best_AdaScreen_won <- NULL
-oscars$Oscar_Best_Director_won <- NULL
-oscars$Oscar_Best_OriScreen_won <- NULL
-oscars$Oscar_Best_Picture_won <- NULL
-oscars$Oscar_Best_Supporting_Actor_won <- NULL
-oscars$Oscar_Best_Supporting_Actress_won <- NULL
+oscars.subset <- oscars %>% 
+  select(-one_of(drop.cols)) %>%
+  select(-matches("categories$")) %>% 
+  select(-matches("Oscar_.*_won$"))
 ```
 
 And for when the rest of the preprocessing is done, this is for splitting. I would say let's use from 2000 to 2012 (75%) for training and from 2013 to 2016 for testing. No need to stratify as we are not doing a random split. 
