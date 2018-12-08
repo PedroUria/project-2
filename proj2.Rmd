@@ -832,17 +832,17 @@ colnames(xw) = gsub(" ","_",colnames(xw))
 colnames(xw) = paste("baf_won",colnames(xw),sep="_")
 
 # 3 clear instances of the same award with separate punctuation. 
-baf_hair = xw$`baf_won_Best_Make_Up_&_Hair` + xw$baf_won_Best_Makeup_and_Hair + xw$`baf_won_Best_Make_Up/Hair`
+baf_won_hair = xw$`baf_won_Best_Make_Up_&_Hair` + xw$baf_won_Best_Makeup_and_Hair + xw$`baf_won_Best_Make_Up/Hair`
 
-baf_ad_screen = xw$baf_won_Best_Adapted_Screenplay + xw$`baf_won_Best_Screenplay_(Adapted)` + xw$`baf_won_Best_Screenplay_-_Adapted`
+baf_won_ad_screen = xw$baf_won_Best_Adapted_Screenplay + xw$`baf_won_Best_Screenplay_(Adapted)` + xw$`baf_won_Best_Screenplay_-_Adapted`
 
-baf_or_screen = xw$baf_won_Best_Original_Screenplay + xw$`baf_won_Best_Screenplay_(Original)` + xw$`baf_won_Best_Screenplay_-_Original`
+baf_won_or_screen = xw$baf_won_Best_Original_Screenplay + xw$`baf_won_Best_Screenplay_(Original)` + xw$`baf_won_Best_Screenplay_-_Original`
 
 # checking if the same film somehow got more than one award that we combined...
 # if so, problematic
-max(baf_or_screen)
-max(baf_ad_screen)
-max(baf_hair)
+max(baf_won_or_screen)
+max(baf_won_ad_screen)
+max(baf_won_hair)
 
 
 
@@ -852,7 +852,7 @@ dim(xw)
 xw = xw[,!colnames(xw)%in%DropCols]
 
 dim(xw)
-xw = cbind(xw,baf_or_screen, baf_ad_screen, baf_hair)
+xw = cbind(xw,baf_won_or_screen, baf_won_ad_screen, baf_won_hair)
 ```
 #BAFTA Nom
 ```{r}
@@ -891,15 +891,15 @@ colnames(x) = gsub(" ","_",colnames(x))
 colnames(x) = paste("baf_nom",colnames(x),sep="_")
 
 
-baf_hair = x$`baf_nom_Best_Make_Up_&_Hair` + x$baf_nom_Best_Makeup_and_Hair + x$`baf_nom_Best_Make_Up/Hair`
+baf_nom_hair = x$`baf_nom_Best_Make_Up_&_Hair` + x$baf_nom_Best_Makeup_and_Hair + x$`baf_nom_Best_Make_Up/Hair`
 
-baf_ad_screen = x$baf_nom_Best_Adapted_Screenplay + x$`baf_nom_Best_Screenplay_(Adapted)` + x$`baf_nom_Best_Screenplay_-_Adapted`
+baf_nom_ad_screen = x$baf_nom_Best_Adapted_Screenplay + x$`baf_nom_Best_Screenplay_(Adapted)` + x$`baf_nom_Best_Screenplay_-_Adapted`
 
-baf_or_screen = x$baf_nom_Best_Original_Screenplay + x$`baf_nom_Best_Screenplay_(Original)` + x$`baf_nom_Best_Screenplay_-_Original`
+baf_nom_or_screen = x$baf_nom_Best_Original_Screenplay + x$`baf_nom_Best_Screenplay_(Original)` + x$`baf_nom_Best_Screenplay_-_Original`
 
-max(baf_or_screen)
-max(baf_ad_screen)
-max(baf_hair)
+max(baf_nom_or_screen)
+max(baf_nom_ad_screen)
+max(baf_nom_hair)
 
 
 
@@ -907,6 +907,8 @@ DropCols = c("baf_nom_",'baf_nom_Best_Make_Up_&_Hair', 'baf_nom_Best_Makeup_and_
 dim(x)
 length(DropCols)
 x = x[,!colnames(x)%in%DropCols]
+
+x = cbind(x,baf_nom_hair,baf_nom_ad_screen,baf_nom_or_screen)
 dim(x)
 
 #######
@@ -1064,10 +1066,10 @@ colnames(xw) = gsub(" ","_",colnames(xw))
 colnames(xw) = paste("cc_won",colnames(xw),sep="_")
 
 # two different ways to spell the family film live action award. 
-cc_fam_action = xw$`cc_won_Best_Family_Film_(Live_Action)` + xw$`cc_won_Best_Family_Film_-_Live_Action` 
+cc_won_fam_action = xw$`cc_won_Best_Family_Film_(Live_Action)` + xw$`cc_won_Best_Family_Film_-_Live_Action` 
 
 
-max(cc_fam_action)
+max(cc_won_fam_action)
 
 
 DropCols = c("cc_won_Best_Family_Film_(Live_Action)","cc_won_Best_Family_Film_-_Live_Action","cc_won_") 
@@ -1077,7 +1079,7 @@ dim(xw)
 xw = xw[,!colnames(xw)%in%DropCols]
 
 dim(xw)
-xw = cbind(xw,cc_fam_action)
+xw = cbind(xw,cc_won_fam_action)
 ```
 # Crictics Choice nominated
 ```{r}
@@ -1117,9 +1119,9 @@ for(i in 1:ncol(x)){
 colnames(x) = gsub(" ","_",colnames(x))
 colnames(x) = paste("cc_nom",colnames(x),sep="_")
 
-cc_fam_action = x$`cc_nom_Best_Family_Film_(Live_Action)` + x$`cc_nom_Best_Family_Film_-_Live_Action` 
+cc_nom_fam_action = x$`cc_nom_Best_Family_Film_(Live_Action)` + x$`cc_nom_Best_Family_Film_-_Live_Action` 
 
-max(cc_fam_action)
+max(cc_nom_fam_action)
 
 
 DropCols = c("cc_nom_Best_Family_Film_(Live_Action)","cc_nom_Best_Family_Film_-_Live_Action","cc_nom_") 
@@ -1129,7 +1131,7 @@ dim(x)
 x = x[,!colnames(x)%in%DropCols]
 
 dim(x)
-x = cbind(x,cc_fam_action)
+x = cbind(x,cc_nom_fam_action)
 
 ###
 
@@ -1477,9 +1479,6 @@ colnames(xw) = gsub(" ","_",colnames(xw))
 colnames(xw) = paste("wg_won",colnames(xw),sep="_")
 
 
-
-
-
 DropCols = c("wg_won_")
 dim(xw)
 length(DropCols)
@@ -1500,7 +1499,6 @@ for(i in 1:length(wgnom_unique)){
   soup = append(soup,unlist(strsplit(wgnom_unique[i],"\\|")))
 }
 new_cols = unique(soup)
-
 
 x = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
 colnames(x) = new_cols
@@ -1672,9 +1670,9 @@ colnames(xw) = paste("oftv_won",colnames(xw),sep="_")
 
 # have to do it for male female breathrough because same award, different punctuation 
 
-best_male_breakthrough = xw$`oftv_won_Best_Breakthrough_Performance:_Male` + xw$`oftv_won_Best_Breakthrough_Performance_-_Male`
+oftv_won_best_male_breakthrough = xw$`oftv_won_Best_Breakthrough_Performance:_Male` + xw$`oftv_won_Best_Breakthrough_Performance_-_Male`
 
-best_female_breakthrough = xw$`oftv_won_Best_Breakthrough_Performance:_Female` + xw$`oftv_won_Best_Breakthrough_Performance_-_Female`
+oftv_won_best_female_breakthrough = xw$`oftv_won_Best_Breakthrough_Performance:_Female` + xw$`oftv_won_Best_Breakthrough_Performance_-_Female`
 
 max(best_male_breakthrough)
 max(best_female_breakthrough)
@@ -1687,7 +1685,7 @@ dim(xw)
 xw = xw[,!colnames(xw)%in%DropCols]
 dim(xw)
 
-xw = cbind(xw,best_male_breakthrough,best_female_breakthrough)
+xw = cbind(xw,oftv_won_best_male_breakthrough,oftv_won_best_female_breakthrough)
 
 
 ```
@@ -1730,12 +1728,12 @@ colnames(x) = paste("oftv_nom",colnames(x),sep="_")
 
 # have to do it for male female breathrough because same award, different punctuation 
 
-best_male_breakthrough = x$`oftv_nom_Best_Breakthrough_Performance:_Male` + x$`oftv_nom_Best_Breakthrough_Performance_-_Male`
+oftv_nom_best_male_breakthrough = x$`oftv_nom_Best_Breakthrough_Performance:_Male` + x$`oftv_nom_Best_Breakthrough_Performance_-_Male`
 
-best_female_breakthrough = x$`oftv_nom_Best_Breakthrough_Performance:_Female` + x$`oftv_nom_Best_Breakthrough_Performance_-_Female`
+oftv_nom_best_female_breakthrough = x$`oftv_nom_Best_Breakthrough_Performance:_Female` + x$`oftv_nom_Best_Breakthrough_Performance_-_Female`
 
-max(best_male_breakthrough)
-max(best_female_breakthrough)
+max(oftv_nom_best_male_breakthrough)
+max(oftv_nom_best_female_breakthrough)
 
 
 DropCols = c("oftv_nom_Best_Breakthrough_Performance:_Male","oftv_nom_Best_Breakthrough_Performance_-_Male","oftv_nom_Best_Breakthrough_Performance:_Female","oftv_nom_Best_Breakthrough_Performance_-_Female") 
@@ -1745,7 +1743,7 @@ dim(x)
 x = x[,!colnames(x)%in%DropCols]
 dim(x)
 
-x = cbind(x,best_male_breakthrough,best_female_breakthrough)
+x = cbind(x,oftv_nom_best_male_breakthrough,oftv_nom_best_female_breakthrough)
 
 noms = gsub("oftv_nom","",colnames(x))
 wins = gsub("oftv_won","",colnames(xw))
@@ -1798,12 +1796,12 @@ colnames(xw) = paste("ofcs_won",colnames(xw),sep="_")
 
 # have to do it for original screenplay, adapted screenplay, only a comma differentiates them
 
-best_adpated_scrnply = xw$ofcs_won_Best_Adapted_Screenplay + xw$`ofcs_won_Best_Screenplay,_Adapted`
+ofcs_won_best_adpated_scrnply = xw$ofcs_won_Best_Adapted_Screenplay + xw$`ofcs_won_Best_Screenplay,_Adapted`
 
-best_orig_scrnply = xw$ofcs_won_Best_Original_Screenplay + xw$`ofcs_won_Best_Screenplay,_Original`
+ofcs_won_best_orig_scrnply = xw$ofcs_won_Best_Original_Screenplay + xw$`ofcs_won_Best_Screenplay,_Original`
 
-max(best_adpated_scrnply)
-max(best_orig_scrnply)
+max(ofcs_won_best_adpated_scrnply)
+max(ofcs_won_best_orig_scrnply)
 
 DropCols = c("ofcs_won_Best_Adapted_Screenplay","ofcs_won_Best_Screenplay,_Adapted","ofcs_won_Best_Original_Screenplay","ofcs_won_Best_Screenplay,_Original") 
 
@@ -1812,7 +1810,7 @@ dim(xw)
 xw = xw[,!colnames(xw)%in%DropCols]
 dim(xw)
 
-xw = cbind(xw,best_orig_scrnply,best_adpated_scrnply)
+xw = cbind(xw,ofcs_won_best_orig_scrnply,ofcs_won_best_adpated_scrnply)
 ```
 #Online Film Critics Society noms
 ```{r}
@@ -1851,12 +1849,12 @@ colnames(x) = paste("ofcs_nom",colnames(x),sep="_")
 
 # have to do it for original screenplay, adapted screenplay, only a comma differentiates them
 
-best_adpated_scrnply = x$ofcs_nom_Best_Adapted_Screenplay + x$`ofcs_nom_Best_Screenplay,_Adapted`
+ofcs_nom_best_adpated_scrnply = x$ofcs_nom_Best_Adapted_Screenplay + x$`ofcs_nom_Best_Screenplay,_Adapted`
 
-best_orig_scrnply = x$ofcs_nom_Best_Original_Screenplay + x$`ofcs_nom_Best_Screenplay,_Original`
+ofcs_nom_best_orig_scrnply = x$ofcs_nom_Best_Original_Screenplay + x$`ofcs_nom_Best_Screenplay,_Original`
 
-max(best_adpated_scrnply)
-max(best_orig_scrnply)
+max(ofcs_nom_best_adpated_scrnply)
+max(ofcs_nom_best_orig_scrnply)
 
 DropCols = c("ofcs_nom_","ofcs_nom_Best_Adapted_Screenplay","ofcs_nom_Best_Screenplay,_Adapted","ofcs_nom_Best_Original_Screenplay","ofcs_nom_Best_Screenplay,_Original") 
 
@@ -1865,7 +1863,7 @@ dim(x)
 x = x[,!colnames(x)%in%DropCols]
 dim(x)
 
-x = cbind(x,best_orig_scrnply,best_adpated_scrnply)
+x = cbind(x,ofcs_best_orig_scrnply,ofcs_best_adpated_scrnply)
 
 
 noms = gsub("ofcs_nom","",colnames(x))
@@ -1920,15 +1918,15 @@ colnames(xw) = paste("pc_won",colnames(xw),sep="_")
 
 # inconsistent spelling/punct for movie drama v. drama movie, movie comedy comedy movie, on screen matchup.
 
-best_drama = xw$pc_won_Favorite_Drama_Movie + xw$pc_won_Favorite_Movie_Drama
+pc_won_best_drama = xw$pc_won_Favorite_Drama_Movie + xw$pc_won_Favorite_Movie_Drama
 
-best_comedy = xw$pc_won_Favorite_Movie_Comedy+ xw$pc_won_Favorite_Comedy_Movie
+pc_won_best_comedy = xw$pc_won_Favorite_Movie_Comedy+ xw$pc_won_Favorite_Comedy_Movie
 
-best_onscrn_matchup = xw$`pc_won_Favorite_On-Screen_Match-Up` + xw$`pc_won_Favorite_On_Screen_Match-up`
+pc_won_best_onscrn_matchup = xw$`pc_won_Favorite_On-Screen_Match-Up` + xw$`pc_won_Favorite_On_Screen_Match-up`
 
-max(best_drama)
-max(best_comedy)
-max(best_onscrn_matchup)
+max(pc_won_best_drama)
+max(pc_won_best_comedy)
+max(pc_won_best_onscrn_matchup)
 
 DropCols = c("pc_won_Favorite_Drama_Movie","pc_won_Favorite_Movie_Drama","pc_won_Favorite_Movie_Comedy","pc_won_Favorite_Comedy_Movie","pc_won_Favorite_On-Screen_Match-Up","pc_won_Favorite_On_Screen_Match-up") 
 
@@ -1937,7 +1935,7 @@ dim(xw)
 xw = xw[,!colnames(xw)%in%DropCols]
 dim(xw)
 
-xw = cbind(xw,best_drama,best_comedy,best_onscrn_matchup)
+xw = cbind(xw,pc_won_best_drama,pc_won_best_comedy,pc_won_best_onscrn_matchup)
 ```
 # PC nominated
 ```{r}
@@ -1976,15 +1974,15 @@ colnames(x) = paste("pc_nom",colnames(x),sep="_")
 
 # inconsistent spelling/punct for movie drama v. drama movie, movie comedy comedy movie, on screen matchup.
 
-best_drama = x$pc_nom_Favorite_Drama_Movie + x$pc_nom_Favorite_Movie_Drama
+pc_nom_best_drama = x$pc_nom_Favorite_Drama_Movie + x$pc_nom_Favorite_Movie_Drama
 
-best_comedy = x$pc_nom_Favorite_Movie_Comedy+ x$pc_nom_Favorite_Comedy_Movie
+pc_nom_best_comedy = x$pc_nom_Favorite_Movie_Comedy+ x$pc_nom_Favorite_Comedy_Movie
 
-best_onscrn_matchup = x$`pc_nom_Favorite_On-Screen_Match-Up` + x$`pc_nom_Favorite_On_Screen_Match-up`
+pc_nom_best_onscrn_matchup = x$`pc_nom_Favorite_On-Screen_Match-Up` + x$`pc_nom_Favorite_On_Screen_Match-up`
 
-max(best_drama)
-max(best_comedy)
-max(best_onscrn_matchup)
+max(pc_nom_best_drama)
+max(pc_nom_best_comedy)
+max(pc_nom_best_onscrn_matchup)
 
 DropCols = c("pc_nom_Favorite_Drama_Movie","pc_nom_Favorite_Movie_Drama","pc_nom_Favorite_Movie_Comedy","pc_nom_Favorite_Comedy_Movie","pc_nom_Favorite_On-Screen_Match-Up","pc_nom_Favorite_On_Screen_Match-up") 
 
@@ -1993,7 +1991,7 @@ dim(x)
 x = x[,!colnames(x)%in%DropCols]
 dim(x)
 
-x = cbind(x,best_drama,best_comedy,best_onscrn_matchup)
+x = cbind(x,pc_nom_best_drama,pc_nom_best_comedy,pc_nom_best_onscrn_matchup)
 
 noms = gsub("pc_nom","",colnames(x))
 wins = gsub("pc_won","",colnames(xw))
@@ -2047,13 +2045,13 @@ colnames(xw) = paste("ace_won",colnames(xw),sep="_")
 
 # inconsistent spelling/punct for movie drama v. drama movie, movie comedy comedy movie, on screen matchup.
 
-best_comedy_or_musical = xw$`ace_won_Best_Edited_Feature_Film_(Comedy_or_Musical)` + xw$`ace_won_Best_Edited_Feature_Film_-_Comedy_or_Musical`
+ace_won_best_comedy_or_musical = xw$`ace_won_Best_Edited_Feature_Film_(Comedy_or_Musical)` + xw$`ace_won_Best_Edited_Feature_Film_-_Comedy_or_Musical`
 
-best_dramatic = xw$`ace_won_Best_Edited_Feature_Film_(Dramatic)` + xw$`ace_won_Best_Edited_Feature_Film_-_Dramatic`
+ace_won_best_dramatic = xw$`ace_won_Best_Edited_Feature_Film_(Dramatic)` + xw$`ace_won_Best_Edited_Feature_Film_-_Dramatic`
 
 
-max(best_dramatic)
-max(best_comedy_or_musical)
+max(ace_won_best_dramatic)
+max(ace_won_best_comedy_or_musical)
 
 DropCols = c("ace_won_Best_Edited_Feature_Film_(Comedy_or_Musical)","ace_won_Best_Edited_Feature_Film_-_Comedy_or_Musical","ace_won_Best_Edited_Feature_Film_(Dramatic)","ace_won_Best_Edited_Feature_Film_-_Dramatic") 
 
@@ -2062,7 +2060,7 @@ dim(xw)
 xw = xw[,!colnames(xw)%in%DropCols]
 dim(xw)
 
-xw = cbind(xw,best_dramatic,best_comedy_or_musical)
+xw = cbind(xw,ace_won_best_dramatic,ace_won_best_comedy_or_musical)
 ```
 # american cinema ed noms
 ```{r}
@@ -2101,13 +2099,13 @@ colnames(x) = paste("ace_nom",colnames(x),sep="_")
 
 # inconsistent spelling/punct for movie drama v. drama movie, movie comedy comedy movie, on screen matchup.
 
-best_comedy_or_musical = x$`ace_nom_Best_Edited_Feature_Film_(Comedy_or_Musical)` + x$`ace_nom_Best_Edited_Feature_Film_-_Comedy_or_Musical`
+ace_nom_best_comedy_or_musical = x$`ace_nom_Best_Edited_Feature_Film_(Comedy_or_Musical)` + x$`ace_nom_Best_Edited_Feature_Film_-_Comedy_or_Musical`
 
-best_dramatic = x$`ace_nom_Best_Edited_Feature_Film_(Dramatic)` + x$`ace_nom_Best_Edited_Feature_Film_-_Dramatic`
+ace_nom_best_dramatic = x$`ace_nom_Best_Edited_Feature_Film_(Dramatic)` + x$`ace_nom_Best_Edited_Feature_Film_-_Dramatic`
 
 
-max(best_dramatic)
-max(best_comedy_or_musical)
+max(ace_nom_best_dramatic)
+max(ace_nom_best_comedy_or_musical)
 
 DropCols = c("ace_nom_Best_Edited_Feature_Film_(Comedy_or_Musical)","ace_nom_Best_Edited_Feature_Film_-_Comedy_or_Musical","ace_nom_Best_Edited_Feature_Film_(Dramatic)","ace_nom_Best_Edited_Feature_Film_-_Dramatic") 
 
@@ -2116,7 +2114,7 @@ dim(x)
 x = x[,!colnames(x)%in%DropCols]
 dim(x)
 
-x = cbind(x,best_dramatic,best_comedy_or_musical)
+x = cbind(x,ace_nom_best_dramatic,ace_nom_best_comedy_or_musical)
 
 noms = gsub("ace_nom","",colnames(x))
 wins = gsub("ace_won","",colnames(xw))
