@@ -60,7 +60,8 @@ package_apply_all(
     'ggplot2', # pretty graphs
     'tidyr', # needed for the gather function
     'caret', # needed for standardizing
-    'pROC' # needed for ROC curve
+    'pROC', # needed for ROC curve
+    'tidyimpute'
   ), require)
 ```
 
@@ -97,10 +98,8 @@ The rest of the features all follow the same pattern: first we have `award_name_
 
 ## Missing Values
 
-```{r}
-missing_per_column = sapply(oscars, function(x) sum(is.na(x)))
-missing_per_column[missing_per_column != 0]
-```
+Having looked and experimented with several ways of imputing the missings we have decided to handle imputing on only the set of variables we expect to apply to the model for simplicity. See section [[Imputation]] below.
+
 
 TODO: Talk about this...
 
@@ -458,6 +457,29 @@ oscars <- oscars %>%
   select(-matches("categories$")) %>% 
   select(-matches("Oscar_.*_won$"))
 ```
+
+## Imputation
+
+Let's figure out to handle any missing values, now that we're removed some of the columns based on the EDA from above.
+
+```{r}
+missing_per_column = sapply(oscars, function(x) sum(is.na(x)))
+missing_per_column[missing_per_column != 0]
+```
+
+Using the `tidyimpute` package to impute the missing values identified above based on the mean. After some consideration, this seemed the best approach to avoid having the imputation inject error into our model. 
+
+```{r}
+oscars <- oscars %>% impute_mean(
+  metascore, 
+  user_reviews, 
+  critic_reviews, 
+  popularity, 
+  sc.gross
+)
+```
+
+## Train and Test Split
 
 and finally let's make sure that we only have the features we want for prediction, and that their types are the right ones (we did not drop `year` yet as we will use it for splitting intro training and testing)
 ```{r}

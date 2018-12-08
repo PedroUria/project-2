@@ -154,18 +154,22 @@ $(document).ready(function () {
 
 <div id="TOC">
 <ul>
-<li><a href="#introduction"><span class="toc-section-number">1</span> Introduction</a><ul>
+<li><a href="#stating-the-question"><span class="toc-section-number">1</span> Stating the Question</a><ul>
 <li><a href="#objectives"><span class="toc-section-number">1.1</span> Objectives</a></li>
 <li><a href="#motivation"><span class="toc-section-number">1.2</span> Motivation</a></li>
 <li><a href="#the-data"><span class="toc-section-number">1.3</span> The Data</a></li>
 </ul></li>
-<li><a href="#exploratory-data-analysis"><span class="toc-section-number">2</span> Exploratory Data Analysis</a><ul>
+<li><a href="#exploratory-data-analysis-eda"><span class="toc-section-number">2</span> Exploratory Data Analysis (EDA)</a><ul>
 <li><a href="#first-contact"><span class="toc-section-number">2.1</span> First Contact</a></li>
 <li><a href="#missing-values"><span class="toc-section-number">2.2</span> Missing Values</a></li>
 <li><a href="#quality-checks"><span class="toc-section-number">2.3</span> Quality Checks</a></li>
 </ul></li>
-<li><a href="#data-preprocessing"><span class="toc-section-number">3</span> Data Preprocessing</a></li>
-<li><a href="#experimental-results-and-analysis"><span class="toc-section-number">4</span> Experimental Results and Analysis</a><ul>
+<li><a href="#model-building"><span class="toc-section-number">3</span> Model Building</a><ul>
+<li><a href="#data-preprocessing"><span class="toc-section-number">3.1</span> Data Preprocessing</a></li>
+<li><a href="#imputation"><span class="toc-section-number">3.2</span> Imputation</a></li>
+<li><a href="#train-and-test-split"><span class="toc-section-number">3.3</span> Train and Test Split</a></li>
+</ul></li>
+<li><a href="#modeling"><span class="toc-section-number">4</span> Modeling</a><ul>
 <li><a href="#logistic-regression"><span class="toc-section-number">4.1</span> Logistic Regression</a><ul>
 <li><a href="#regular-logistic-regression"><span class="toc-section-number">4.1.1</span> Regular Logistic Regression</a></li>
 <li><a href="#other"><span class="toc-section-number">4.1.2</span> Other</a></li>
@@ -181,8 +185,9 @@ $(document).ready(function () {
 </ul>
 </div>
 
-<div id="introduction" class="section level1">
-<h1><span class="header-section-number">1</span> Introduction</h1>
+<div id="stating-the-question" class="section level1">
+<h1><span class="header-section-number">1</span> Stating the Question</h1>
+<p>TODO: Revise to Question-first mind-set</p>
 <div id="objectives" class="section level2">
 <h2><span class="header-section-number">1.1</span> Objectives</h2>
 <p>The goal of this project is to develop models to predict whether a movie will win some kind of Oscar award or not, and potentially …..(TODO). In order to achieve this, we will use a dataset that <a href="https://bigml.com/">BigMl</a> <a href="https://bigml.com/user/academy_awards/gallery/dataset/5a94302592fb565ed400103b">put together</a> and used to train a deep neural network to get <a href="https://blog.bigml.com/2018/03/01/predicting-the-2018-oscar-winners/">perfect predictions</a> for the 8 categories they targeted for 2018. However, this does not mean their model is perfect, as ….. (TODO: source for where they say even they were surprised?).</p>
@@ -196,8 +201,8 @@ $(document).ready(function () {
 <p>Gathering the data was very straightforward in this case. After coming up with the idea for the project, a simple Google search of: <em>oscars machine learning</em> almost directly handed us the dataset. We quickly found <a href="https://medium.com/enrique-dans/and-this-years-oscar-goes-to-bigml-machine-learning-1823837ae3aa">this article</a>, which lead us to BigML. After signing up on their website, we were able to download the dataset for free. However, this would not mean that the data would be ready to be fed to our machine learning algorithms right away… which we easily realized after doing some EDA. BigML combined data from IMDB with entries that specify whether a movie has won some other awards previous to the Oscars.</p>
 </div>
 </div>
-<div id="exploratory-data-analysis" class="section level1">
-<h1><span class="header-section-number">2</span> Exploratory Data Analysis</h1>
+<div id="exploratory-data-analysis-eda" class="section level1">
+<h1><span class="header-section-number">2</span> Exploratory Data Analysis (EDA)</h1>
 <div id="first-contact" class="section level2">
 <h2><span class="header-section-number">2.1</span> First Contact</h2>
 <p>Let’s load the data and see what features we have and how large is our dataset</p>
@@ -231,112 +236,7 @@ $(document).ready(function () {
 </div>
 <div id="missing-values" class="section level2">
 <h2><span class="header-section-number">2.2</span> Missing Values</h2>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">missing_per_column =<span class="st"> </span><span class="kw">sapply</span>(oscars, <span class="cf">function</span>(x) <span class="kw">sum</span>(<span class="kw">is.na</span>(x)))
-missing_per_column[missing_per_column <span class="op">!=</span><span class="st"> </span><span class="dv">0</span>]</code></pre></div>
-<pre><code>##                                               certificate 
-##                                                        10 
-##                                                 metascore 
-##                                                        14 
-##                                                     gross 
-##                                                        24 
-##                                              release_date 
-##                                                         9 
-##                                              user_reviews 
-##                                                         7 
-##                                            critic_reviews 
-##                                                         7 
-##                                                popularity 
-##                                                       119 
-##                                Oscar_nominated_categories 
-##                                                       551 
-##                              Golden_Globes_won_categories 
-##                                                      1024 
-##                        Golden_Globes_nominated_categories 
-##                                                       732 
-##                                      BAFTA_won_categories 
-##                                                      1004 
-##                                BAFTA_nominated_categories 
-##                                                       783 
-##                        Screen_Actors_Guild_won_categories 
-##                                                      1103 
-##                  Screen_Actors_Guild_nominated_categories 
-##                                                       910 
-##                             Critics_Choice_won_categories 
-##                                                       966 
-##                       Critics_Choice_nominated_categories 
-##                                                       614 
-##                            Directors_Guild_won_categories 
-##                                                      1163 
-##                      Directors_Guild_nominated_categories 
-##                                                      1088 
-##                            Producers_Guild_won_categories 
-##                                                      1149 
-##                      Producers_Guild_nominated_categories 
-##                                                      1006 
-##                        Art_Directors_Guild_won_categories 
-##                                                      1137 
-##                  Art_Directors_Guild_nominated_categories 
-##                                                       955 
-##                              Writers_Guild_won_categories 
-##                                                      1150 
-##                        Writers_Guild_nominated_categories 
-##                                                      1016 
-##                    Costume_Designers_Guild_won_categories 
-##                                                      1142 
-##              Costume_Designers_Guild_nominated_categories 
-##                                                       990 
-##         Online_Film_Television_Association_won_categories 
-##                                                       962 
-##   Online_Film_Television_Association_nominated_categories 
-##                                                       635 
-##                Online_Film_Critics_Society_won_categories 
-##                                                      1036 
-##          Online_Film_Critics_Society_nominated_categories 
-##                                                       796 
-##                              People_Choice_won_categories 
-##                                                      1127 
-##                        People_Choice_nominated_categories 
-##                                                       995 
-##                 London_Critics_Circle_Film_won_categories 
-##                                                      1065 
-##           London_Critics_Circle_Film_nominated_categories 
-##                                                       860 
-##                    American_Cinema_Editors_won_categories 
-##                                                      1140 
-##              American_Cinema_Editors_nominated_categories 
-##                                                       987 
-##                             Hollywood_Film_won_categories 
-##                                                      1017 
-##                       Hollywood_Film_nominated_categories 
-##                                                      1016 
-##            Austin_Film_Critics_Association_won_categories 
-##                                                      1090 
-##      Austin_Film_Critics_Association_nominated_categories 
-##                                                      1022 
-##                Denver_Film_Critics_Society_won_categories 
-##                                                      1108 
-##          Denver_Film_Critics_Society_nominated_categories 
-##                                                       970 
-##             Boston_Society_of_Film_Critics_won_categories 
-##                                                      1062 
-##       Boston_Society_of_Film_Critics_nominated_categories 
-##                                                       981 
-##               New_York_Film_Critics_Circle_won_categories 
-##                                                      1064 
-##         New_York_Film_Critics_Circle_nominated_categories 
-##                                                       970 
-##       Los_Angeles_Film_Critics_Association_won_categories 
-##                                                      1040 
-## Los_Angeles_Film_Critics_Association_nominated_categories 
-##                                                       968 
-##                                         release_date.year 
-##                                                         9 
-##                                        release_date.month 
-##                                                         9 
-##                                 release_date.day-of-month 
-##                                                         9 
-##                                  release_date.day-of-week 
-##                                                         9</code></pre>
+<p>Having looked and experimented with several ways of imputing the missings we have decided to handle imputing on only the set of variables we expect to apply to the model for simplicity. See section [<a href="#imputation">Imputation</a>] below.</p>
 <p>TODO: Talk about this…</p>
 </div>
 <div id="quality-checks" class="section level2">
@@ -408,8 +308,10 @@ num_awards_won</code></pre></div>
 <p>I THINK THIS IS ALL FOR THE QUIALITY CHECKS AND ALSO EDA</p>
 </div>
 </div>
-<div id="data-preprocessing" class="section level1">
-<h1><span class="header-section-number">3</span> Data Preprocessing</h1>
+<div id="model-building" class="section level1">
+<h1><span class="header-section-number">3</span> Model Building</h1>
+<div id="data-preprocessing" class="section level2">
+<h2><span class="header-section-number">3.1</span> Data Preprocessing</h2>
 <p>Let’s proceed on an orderly manner. First, let’s get the target column, as it will be useful for later preprocessing.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># sum number of wins identified per row for cols</span>
 tmp.won &lt;-<span class="st"> </span><span class="kw">rowSums</span>(
@@ -692,6 +594,25 @@ oscars &lt;-<span class="st"> </span>oscars <span class="op">%&gt;%</span><span 
 <span class="st">  </span><span class="kw">select</span>(<span class="op">-</span><span class="kw">one_of</span>(drop.cols)) <span class="op">%&gt;%</span>
 <span class="st">  </span><span class="kw">select</span>(<span class="op">-</span><span class="kw">matches</span>(<span class="st">&quot;categories$&quot;</span>)) <span class="op">%&gt;%</span><span class="st"> </span>
 <span class="st">  </span><span class="kw">select</span>(<span class="op">-</span><span class="kw">matches</span>(<span class="st">&quot;Oscar_.*_won$&quot;</span>))</code></pre></div>
+</div>
+<div id="imputation" class="section level2">
+<h2><span class="header-section-number">3.2</span> Imputation</h2>
+<p>Let’s figure out to handle any missing values, now that we’re removed some of the columns based on the EDA from above.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">missing_per_column =<span class="st"> </span><span class="kw">sapply</span>(oscars, <span class="cf">function</span>(x) <span class="kw">sum</span>(<span class="kw">is.na</span>(x)))
+missing_per_column[missing_per_column <span class="op">!=</span><span class="st"> </span><span class="dv">0</span>]</code></pre></div>
+<pre><code>##      metascore   user_reviews critic_reviews     popularity       sc.gross 
+##             10              7              7            101             16</code></pre>
+<p>Using the <code>tidyimpute</code> package to impute the missing values identified above based on the mean. After some consideration, this seemed the best approach to avoid having the imputation inject error into our model.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">oscars &lt;-<span class="st"> </span>oscars <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">impute_mean</span>(
+  metascore, 
+  user_reviews, 
+  critic_reviews, 
+  popularity, 
+  sc.gross
+)</code></pre></div>
+</div>
+<div id="train-and-test-split" class="section level2">
+<h2><span class="header-section-number">3.3</span> Train and Test Split</h2>
 <p>and finally let’s make sure that we only have the features we want for prediction, and that their types are the right ones (we did not drop <code>year</code> yet as we will use it for splitting intro training and testing)</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">sapply</span>(oscars, typeof)</code></pre></div>
 <pre><code>##                                           year 
@@ -888,8 +809,9 @@ X_train &lt;-<span class="st"> </span><span class="kw">predict</span>(scaleParam
 X_test &lt;-<span class="st"> </span><span class="kw">predict</span>(scaleParam, X_test)</code></pre></div>
 <p>Well… it seems we are ready to train some Machine Learning models!</p>
 </div>
-<div id="experimental-results-and-analysis" class="section level1">
-<h1><span class="header-section-number">4</span> Experimental Results and Analysis</h1>
+</div>
+<div id="modeling" class="section level1">
+<h1><span class="header-section-number">4</span> Modeling</h1>
 <div id="logistic-regression" class="section level2">
 <h2><span class="header-section-number">4.1</span> Logistic Regression</h2>
 <div id="regular-logistic-regression" class="section level3">
