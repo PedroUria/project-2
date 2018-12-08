@@ -14,7 +14,9 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Introduction
+# Stating the Question
+
+TODO: Revise to Question-first mind-set
 
 ## Objectives
 
@@ -28,7 +30,7 @@ The motivation is to use these models to identify the most relevant features tha
 
 Gathering the data was very straightforward in this case. After coming up with the idea for the project, a simple Google search of: *oscars machine learning* almost directly handed us the dataset. We quickly found [this article](https://medium.com/enrique-dans/and-this-years-oscar-goes-to-bigml-machine-learning-1823837ae3aa), which lead us to BigML. After signing up on their website, we were able to download the dataset for free. However, this would not mean that the data would be ready to be fed to our machine learning algorithms right away... which we easily realized after doing some EDA. BigML combined data from IMDB with entries that specify whether a movie has won some other awards previous to the Oscars.
 
-# Exploratory Data Analysis
+# Exploratory Data Analysis (EDA)
 
 ```{r install_functions, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -163,7 +165,8 @@ num_awards_won
 
 I THINK THIS IS ALL FOR THE QUIALITY CHECKS AND ALSO EDA
 
-# Data Preprocessing
+# Model Building
+## Data Preprocessing
 
 Let's proceed on an orderly manner. First, let's get the target column, as it will be useful for later preprocessing. 
 
@@ -434,7 +437,6 @@ oscars <- oscars %>%
   mutate(seasons = season(release_date.month))
 ```
 
-
 All that is left is dropping the undesired columns, and ensuring the correct data types are being used.
 
 ```{r}
@@ -498,7 +500,7 @@ X_test <- predict(scaleParam, X_test)
 
 Well... it seems we are ready to train some Machine Learning models!
 
-# Experimental Results and Analysis
+# Modeling
 
 ## Logistic Regression
 
