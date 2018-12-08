@@ -590,30 +590,6 @@ for(i in 1:ncol(xw)){
 colnames(xw) = gsub(" ","_",colnames(xw))
 
 colnames(xw) = paste("LCC_Won",colnames(xw),sep="_")
-
-# get rid of the redundant columns...
-
-LCC_Won_Best_British_Film = xw$LCC_Won_British_Film_of_the_Year + xw$`LCC_Won_British/Irish_Film_of_the_Year`
-
-LCC_Won_Best_British_Actor = xw$`LCC_Won_British/Irish_Actor_of_the_Year` + xw$LCC_Won_British_Actor_of_the_Year
-
-
-LCC_Won_Best_British_Actress = xw$`LCC_Won_British/Irish_Actress_of_the_Year` + xw$LCC_Won_British_Actress_of_the_Year
-# check if we added any duplicates, if so, we'd need to turn them back into 1's. 
-max(LCC_Won_Best_British_Film)
-max(LCC_Won_Best_British_Actor)
-max(LCC_Won_Best_British_Actress)
-
-
-DropCols = c("LCC_Won_Young_British/Irish_Performer_of_the_Year","LCC_Won_Young_British_Performer_of_the_Year","LCC_Won_British_Film_of_the_Year","LCC_Won_British/Irish_Film_of_the_Year","LCC_Won_British/Irish_Actor_of_the_Year","LCC_Won_British_Actor_of_the_Year","LCC_Won_British/Irish_Actress_of_the_Year","LCC_Won_British_Actress_of_the_Year","LCC_Won_Breakthrough_British/Irish_Filmmaker_of_the_Year","LCC_Won_British_Breakthrough_-_Filmmaking","LCC_Won_Breakthrough_British_Filmmaker")
-
-# so... some of the awards won don't match up with all of the awards nominated. 
-xw = xw[,!colnames(xw)%in%DropCols]
-
-dim(xw)
-xw = cbind(xw,LCC_Won_Best_British_Film,LCC_Won_Best_British_Actor,LCC_Won_Best_British_Actress)
-
-# we will have to check if these match  up... 
 ```
 #LCC noms
 ```{r}
@@ -658,39 +634,6 @@ colnames(x) = gsub(" ","_",colnames(x))
 #re-name the columns so we can append them to the original dataframe
 colnames(x) = paste("LCC_Nom",colnames(x),sep="_")
 
-# add 28 and 17, young british v. british irish performer. 
-# add 2 and 27, british film of year british irish film of year. 
-
-
-LCC_Nom_Best_Young_British_Performer = x$`LCC_Nom_Young_British/Irish_Performer_of_the_Year` + x$LCC_Nom_Young_British_Performer_of_the_Year
-
-LCC_Nom_Best_British_Film = x$LCC_Nom_British_Film_of_the_Year + x$`LCC_Nom_British/Irish_Film_of_the_Year`
-
-LCC_Nom_Best_British_Actor = x$`LCC_Nom_British/Irish_Actor_of_the_Year` + x$LCC_Nom_British_Actor_of_the_Year
-
-
-LCC_Nom_Best_British_Actress = x$`LCC_Nom_British/Irish_Actress_of_the_Year` + x$LCC_Nom_British_Actress_of_the_Year
-
-LCC_Nom_British_Breakthrough_filmmaking = x$`LCC_Nom_Breakthrough_British/Irish_Filmmaker_of_the_Year`+x$`LCC_Nom_British_Breakthrough_-_Filmmaking`+x$LCC_Nom_Breakthrough_British_Filmmaker
-
-# check if we added any duplicates, if so, we'd need to turn them back into 1's as this is supposed to be binary 
-# we checked to make sure we weren't smushing awards, and the duplicate ones mentioned weren't available for wins/nomination. 
-
-max(LCC_Nom_Best_British_Film)
-max(LCC_Nom_Best_British_Actor)
-max(LCC_Nom_Best_British_Actress)
-max(LCC_Nom_Best_Young_British_Performer)
-max(LCC_Nom_British_Breakthrough_filmmaking)
-
-
-
-DropCols = c("LCC_Nom_Young_British/Irish_Performer_of_the_Year","LCC_Nom_Young_British_Performer_of_the_Year","LCC_Nom_British_Film_of_the_Year","LCC_Nom_British/Irish_Film_of_the_Year","LCC_Nom_British/Irish_Actor_of_the_Year","LCC_Nom_British_Actor_of_the_Year","LCC_Nom_British/Irish_Actress_of_the_Year","LCC_Nom_British_Actress_of_the_Year","LCC_Nom_Breakthrough_British/Irish_Filmmaker_of_the_Year","LCC_Nom_British_Breakthrough_-_Filmmaking","LCC_Nom_Breakthrough_British_Filmmaker")
-
-x = x[,!colnames(x)%in%DropCols]
-
-x = cbind(x,LCC_Nom_Best_Young_British_Performer,LCC_Nom_Best_British_Film,LCC_Nom_Best_British_Actor,LCC_Nom_Best_British_Actress,LCC_Nom_British_Breakthrough_filmmaking) 
-
-dim(x)
 
 noms = gsub("LCC_Nom","",colnames(x))
 wins = gsub("LCC_Won","",colnames(xw))
@@ -702,11 +645,8 @@ length(noms[noms %in% wins])
 # if we don't care about this, we can alternatively just add all columns after they're created. 
 if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) == TRUE){
   oscars = cbind(oscars,x,xw)
-  }else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("LCC_Nom",noms[noms %in% wins],sep=""))],x[,colnames(x)%in%c(paste("LCC_Won",noms[noms %in% wins],sep=""))])
+  }else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("LCC_Nom",noms[noms %in% wins],sep=""))],xw[,colnames(xw)%in%c(paste("LCC_Won",wins[wins %in% noms],sep=""))])
 }  
-
-
-
 ```
 # Golden Globe Wins
 ```{r}
@@ -745,6 +685,9 @@ for(i in 1:ncol(xw)){
 colnames(xw) = gsub(" ","_",colnames(xw))
 colnames(xw) = paste("gg_won",colnames(xw),sep="_")
 
+
+# we have clear errors.... , Comedy or Musical, Musical or comedy... where the rest of the text is 
+# EXACTLY the same... 
 gg_won_Best_Performance_by_an_Actor_in_a_Motion_Picture_Musical_Comedy = xw$`gg_won_Best_Performance_by_an_Actor_in_a_Motion_Picture_-_Comedy_or_Musical`+ xw$`gg_won_Best_Performance_by_an_Actor_in_a_Motion_Picture_-_Musical_or_Comedy`
 
 gg_won_Best_Motion_Picture_Musical_Comedy = (xw$`gg_won_Best_Motion_Picture_-_Comedy_or_Musical` + xw$`gg_won_Best_Motion_Picture_-_Musical_or_Comedy`)
@@ -755,7 +698,7 @@ xw$`gg_won_Best_Performance_by_an_Actress_in_a_Motion_Picture_-_Musical_or_Comed
 max(gg_won_Best_Performance_by_an_Actor_in_a_Motion_Picture_Musical_Comedy)
 max(gg_won_Best_Motion_Picture_Musical_Comedy)
 max(gg_won_Best_Performance_by_an_Actress_in_a_Motion_Picture_Musical_Comedy)
-
+# phew, none overlapped .... 
 
 
 xw = cbind(xw,gg_won_Best_Performance_by_an_Actor_in_a_Motion_Picture_Musical_Comedy,gg_won_Best_Motion_Picture_Musical_Comedy,gg_won_Best_Performance_by_an_Actress_in_a_Motion_Picture_Musical_Comedy) 
@@ -765,7 +708,7 @@ DropCols = c("gg_won_Best_Performance_by_an_Actor_in_a_Motion_Picture_-_Comedy_o
 length(DropCols)
 dim(xw)
 xw = xw[,!colnames(xw)%in%DropCols]
-
+colnames(xw)
 ```
 
 #golden globe nominations 
@@ -842,7 +785,7 @@ length(noms[noms %in% wins])
 # if we don't care about this, we can alternatively just add all columns after they're created. 
 if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
   oscars = cbind(oscars,x,xw)
-} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("gg_nom",noms[noms %in% wins],sep=""))], x[,colnames(x)%in%c(paste("gg_won",noms[noms %in% wins],sep=""))])
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("gg_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("gg_won",wins[wins %in% noms],sep=""))])
 } 
 dim(oscars)
 
@@ -888,62 +831,30 @@ for(i in 1:ncol(xw)){
 colnames(xw) = gsub(" ","_",colnames(xw))
 colnames(xw) = paste("baf_won",colnames(xw),sep="_")
 
-baf_best_actor = xw$baf_won_Best_Actor_in_a_Leading_Role + xw$baf_won_Best_Performance_by_an_Actor_in_a_Leading_Role
-
+# 3 clear instances of the same award with separate punctuation. 
 baf_hair = xw$`baf_won_Best_Make_Up_&_Hair` + xw$baf_won_Best_Makeup_and_Hair + xw$`baf_won_Best_Make_Up/Hair`
-
-baf_best_brit = xw$baf_won_Best_British_Film + xw$baf_won_Outstanding_British_Film_of_the_Year
 
 baf_ad_screen = xw$baf_won_Best_Adapted_Screenplay + xw$`baf_won_Best_Screenplay_(Adapted)` + xw$`baf_won_Best_Screenplay_-_Adapted`
 
-baf_music = xw$baf_won_Original_Music + xw$baf_won_Best_Original_Music + xw$baf_won_Anthony_Asquith_Award_for_Film_Music
-
-baf_best_actress = xw$baf_won_Best_Actress_in_a_Leading_Role + xw$baf_won_Best_Performance_by_an_Actress_in_a_Leading_Role
-
-baf_sup_actor = xw$baf_won_Best_Supporting_Actor + xw$baf_won_Best_Actor_in_a_Supporting_Role + xw$baf_won_Best_Performance_by_an_Actor_in_a_Supporting_Role
-
-baf_sup_actress = xw$baf_won_Best_Supporting_Actress + xw$baf_won_Best_Actress_in_a_Supporting_Role + xw$baf_won_Best_Performance_by_an_Actress_in_a_Supporting_Role
-
 baf_or_screen = xw$baf_won_Best_Original_Screenplay + xw$`baf_won_Best_Screenplay_(Original)` + xw$`baf_won_Best_Screenplay_-_Original`
 
+# checking if the same film somehow got more than one award that we combined...
+# if so, problematic
 max(baf_or_screen)
-max(baf_sup_actress)
-max(baf_sup_actor)
-max(baf_best_actress)
-max(baf_music)
 max(baf_ad_screen)
-max(baf_best_brit)
-max(baf_best_actor)
 max(baf_hair)
 
-# we are going to combine all of the music awards together because this needs to be a binary variable. 
-for(i in 1:length(baf_music)){
-  if(baf_music[i]>1){
-    baf_music[i] =1
-  }
-}
 
-# just get rid of ""
-# makeup and hair ... 2, 28,39
-# best british film, outstanding british film of the year
-# get rid of anything that is ""
-# best adapted screenplay and best screenplay (adapted), best screenplay - "Adapted"
-# best leading actor v. best actor in a leading role 
-# Best original music and original music + asquith music award
-# Best Leading actress and best performance by an actress in a leading role 
-# Best Performance by an Actor in a Supporting Role and Best Actor in a Supporting role
-# best performance by an actress in a supporting role and best actress in a supporing role
-# best Screenplay (original) best original screenplay. best screenplay -original. 
 
-DropCols = c("baf_won_","baf_won_Best_Actor_in_a_Leading_Role", "baf_won_Best_Performance_by_an_Actor_in_a_Leading_Role",'baf_won_Best_Make_Up_&_Hair', 'baf_won_Best_Makeup_and_Hair', 'baf_won_Best_Make_Up/Hair',"baf_won_Best_British_Film","baf_won_Outstanding_British_Film_of_the_Year","baf_won_Best_Adapted_Screenplay","baf_won_Best_Screenplay_(Adapted)","baf_won_Best_Screenplay_-_Adapted","baf_won_Original_Music", "baf_won_Best_Original_Music","baf_won_Anthony_Asquith_Award_for_Film_Music","baf_won_Best_Actress_in_a_Leading_Role", "baf_won_Best_Performance_by_an_Actress_in_a_Leading_Role","baf_won_Best_Supporting_Actor", "baf_won_Best_Actor_in_a_Supporting_Role", "baf_won_Best_Performance_by_an_Actor_in_a_Supporting_Role","baf_won_Best_Supporting_Actress","baf_won_Best_Actress_in_a_Supporting_Role", "baf_won_Best_Performance_by_an_Actress_in_a_Supporting_Role","baf_won_Best_Original_Screenplay", "baf_won_Best_Screenplay_(Original)","baf_won_Best_Screenplay_-_Original") 
+DropCols = c("baf_won_",'baf_won_Best_Make_Up_&_Hair', 'baf_won_Best_Makeup_and_Hair', 'baf_won_Best_Make_Up/Hair',"baf_won_Best_Adapted_Screenplay","baf_won_Best_Screenplay_(Adapted)","baf_won_Best_Screenplay_-_Adapted","baf_won_Best_Original_Screenplay", "baf_won_Best_Screenplay_(Original)","baf_won_Best_Screenplay_-_Original") 
 length(DropCols)
 dim(xw)
 xw = xw[,!colnames(xw)%in%DropCols]
 
 dim(xw)
-xw = cbind(xw,baf_or_screen,baf_sup_actress, baf_sup_actor, baf_best_actress, baf_music,baf_ad_screen, baf_best_brit, baf_best_actor, baf_hair)
+xw = cbind(xw,baf_or_screen, baf_ad_screen, baf_hair)
 ```
-
+#BAFTA Nom
 ```{r}
 oscars[which(is.na(oscars$BAFTA_nominated_categories)==TRUE),]$BAFTA_nominated_categories = "none"
 
@@ -979,54 +890,20 @@ for(i in 1:ncol(x)){
 colnames(x) = gsub(" ","_",colnames(x))
 colnames(x) = paste("baf_nom",colnames(x),sep="_")
 
-baf_best_actor = x$baf_nom_Best_Actor_in_a_Leading_Role + x$baf_nom_Best_Performance_by_an_Actor_in_a_Leading_Role
 
 baf_hair = x$`baf_nom_Best_Make_Up_&_Hair` + x$baf_nom_Best_Makeup_and_Hair + x$`baf_nom_Best_Make_Up/Hair`
 
-baf_best_brit = x$baf_nom_Best_British_Film + x$baf_nom_Outstanding_British_Film_of_the_Year
-
 baf_ad_screen = x$baf_nom_Best_Adapted_Screenplay + x$`baf_nom_Best_Screenplay_(Adapted)` + x$`baf_nom_Best_Screenplay_-_Adapted`
-
-baf_music = x$baf_nom_Original_Music + x$baf_nom_Best_Original_Music + x$baf_nom_Anthony_Asquith_Award_for_Film_Music
-
-baf_best_actress = x$baf_nom_Best_Actress_in_a_Leading_Role + x$baf_nom_Best_Performance_by_an_Actress_in_a_Leading_Role
-
-baf_sup_actor = x$baf_nom_Best_Supporting_Actor + x$baf_nom_Best_Actor_in_a_Supporting_Role + x$baf_nom_Best_Performance_by_an_Actor_in_a_Supporting_Role
-
-baf_sup_actress = x$baf_nom_Best_Supporting_Actress + x$baf_nom_Best_Actress_in_a_Supporting_Role + x$baf_nom_Best_Performance_by_an_Actress_in_a_Supporting_Role
 
 baf_or_screen = x$baf_nom_Best_Original_Screenplay + x$`baf_nom_Best_Screenplay_(Original)` + x$`baf_nom_Best_Screenplay_-_Original`
 
 max(baf_or_screen)
-max(baf_sup_actress)
-max(baf_sup_actor)
-max(baf_best_actress)
-max(baf_music)
 max(baf_ad_screen)
-max(baf_best_brit)
-max(baf_best_actor)
 max(baf_hair)
 
-# we are going to combine all of the music awards together because this needs to be a binary variable. 
-for(i in 1:length(baf_music)){
-  if(baf_music[i]>1){
-    baf_music[i] =1
-  }
-}
 
-# just get rid of ""
-# makeup and hair ... 2, 28,39
-# best british film, outstanding british film of the year
-# get rid of anything that is ""
-# best adapted screenplay and best screenplay (adapted), best screenplay - "Adapted"
-# best leading actor v. best actor in a leading role 
-# Best original music and original music + asquith music award
-# Best Leading actress and best performance by an actress in a leading role 
-# Best Performance by an Actor in a Supporting Role and Best Actor in a Supporting role
-# best performance by an actress in a supporting role and best actress in a supporing role
-# best Screenplay (original) best original screenplay. best screenplay -original. 
 
-DropCols = c("baf_nom_","baf_nom_Best_Actor_in_a_Leading_Role", "baf_nom_Best_Performance_by_an_Actor_in_a_Leading_Role",'baf_nom_Best_Make_Up_&_Hair', 'baf_nom_Best_Makeup_and_Hair', 'baf_nom_Best_Make_Up/Hair',"baf_nom_Best_British_Film","baf_nom_Outstanding_British_Film_of_the_Year","baf_nom_Best_Adapted_Screenplay","baf_nom_Best_Screenplay_(Adapted)","baf_nom_Best_Screenplay_-_Adapted","baf_nom_Original_Music", "baf_nom_Best_Original_Music","baf_nom_Anthony_Asquith_Award_for_Film_Music","baf_nom_Best_Actress_in_a_Leading_Role", "baf_nom_Best_Performance_by_an_Actress_in_a_Leading_Role","baf_nom_Best_Supporting_Actor", "baf_nom_Best_Actor_in_a_Supporting_Role", "baf_nom_Best_Performance_by_an_Actor_in_a_Supporting_Role","baf_nom_Best_Supporting_Actress","baf_nom_Best_Actress_in_a_Supporting_Role", "baf_nom_Best_Performance_by_an_Actress_in_a_Supporting_Role","baf_nom_Best_Original_Screenplay", "baf_nom_Best_Screenplay_(Original)","baf_nom_Best_Screenplay_-_Original") 
+DropCols = c("baf_nom_",'baf_nom_Best_Make_Up_&_Hair', 'baf_nom_Best_Makeup_and_Hair', 'baf_nom_Best_Make_Up/Hair',"baf_nom_Best_Adapted_Screenplay","baf_nom_Best_Screenplay_(Adapted)","baf_nom_Best_Screenplay_-_Adapted","baf_nom_Best_Original_Screenplay", "baf_nom_Best_Screenplay_(Original)","baf_nom_Best_Screenplay_-_Original") 
 dim(x)
 length(DropCols)
 x = x[,!colnames(x)%in%DropCols]
@@ -1044,7 +921,7 @@ length(noms[noms %in% wins])
 # if we don't care about this, we can alternatively just add all columns after they're created. 
 if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
   oscars = cbind(oscars,x,xw)
-} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("baf_nom",noms[noms %in% wins],sep=""))], x[,colnames(x)%in%c(paste("baf_won",noms[noms %in% wins],sep=""))])
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("baf_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("baf_won",wins[wins %in% noms],sep=""))])
 } 
 ```
 # Screen actors guild won 
@@ -1086,31 +963,8 @@ for(i in 1:ncol(xw)){
 colnames(xw) = gsub(" ","_",colnames(xw))
 colnames(xw) = paste("sag_won",colnames(xw),sep="_")
 
-sag_stunt = xw$sag_won_Outstanding_Performance_by_a_Stunt_Ensemble_in_a_Motion_Picture+ xw$sag_won_Outstanding_Action_Performance_by_a_Stunt_Ensemble_in_a_Film+xw$sag_won_Outstanding_Action_Performance_by_a_Stunt_Ensemble_in_a_Motion_Picture
-
-sag_cast = xw$sag_won_Outstanding_Performance_by_a_Cast_in_a_Motion_Picture + xw$sag_won_Outstanding_Performance_by_a_Cast_in_a_Theatrical_Motion_Picture
-
-
-max(sag_stunt)
-max(sag_cast)
-
-
-# we are going to combine all of the cast awards together because this needs to be binary. 
-for(i in 1:length(sag_cast)){
-  if(sag_cast[i]>1){
-    sag_cast[i] =1
-  }
-}
-
-DropCols = c("sag_won_Outstanding_Performance_by_a_Stunt_Ensemble_in_a_Motion_Picture", "sag_won_Outstanding_Action_Performance_by_a_Stunt_Ensemble_in_a_Film","sag_won_Outstanding_Action_Performance_by_a_Stunt_Ensemble_in_a_Motion_Picture","sag_won_Outstanding_Performance_by_a_Cast_in_a_Motion_Picture","sag_won_Outstanding_Performance_by_a_Cast_in_a_Theatrical_Motion_Picture") 
-length(DropCols)
-dim(xw)
-xw = xw[,!colnames(xw)%in%DropCols]
-
-dim(xw)
-xw = cbind(xw,sag_cast,sag_stunt)
 ```
-
+# Screen actors guild nominated
 ```{r}
 sum(is.na(oscars$Screen_Actors_Guild_nominated_categories))
 
@@ -1148,35 +1002,6 @@ for(i in 1:ncol(x)){
 colnames(x) = gsub(" ","_",colnames(x))
 colnames(x) = paste("sag_nom",colnames(x),sep="_")
 
-sag_stunt = x$sag_nom_Outstanding_Performance_by_a_Stunt_Ensemble_in_a_Motion_Picture+ x$sag_nom_Outstanding_Action_Performance_by_a_Stunt_Ensemble_in_a_Film+x$sag_nom_Outstanding_Action_Performance_by_a_Stunt_Ensemble_in_a_Motion_Picture
-
-sag_cast = x$sag_nom_Outstanding_Performance_by_a_Cast_in_a_Motion_Picture + x$sag_nom_Outstanding_Performance_by_a_Cast_in_a_Theatrical_Motion_Picture
-
-
-max(sag_stunt)
-max(sag_cast)
-
-
-# we are going to combine all of the cast awards together because this needs to be binary. 
-for(i in 1:length(sag_cast)){
-  if(sag_cast[i]>1){
-    sag_cast[i] =1
-  }
-}
-
-for(i in 1:length(sag_stunt)){
-  if(sag_stunt[i]>1){
-    sag_stunt[i] =1
-  }
-}
-
-DropCols = c("sag_nom_Outstanding_Performance_by_a_Stunt_Ensemble_in_a_Motion_Picture", "sag_nom_Outstanding_Action_Performance_by_a_Stunt_Ensemble_in_a_Film","sag_nom_Outstanding_Action_Performance_by_a_Stunt_Ensemble_in_a_Motion_Picture","sag_nom_Outstanding_Performance_by_a_Cast_in_a_Motion_Picture","sag_nom_Outstanding_Performance_by_a_Cast_in_a_Theatrical_Motion_Picture") 
-length(DropCols)
-dim(x)
-x = x[,!colnames(x)%in%DropCols]
-
-dim(x)
-x = cbind(x,sag_cast,sag_stunt)
 
 
 noms = gsub("sag_nom","",colnames(x))
@@ -1189,7 +1014,7 @@ length(noms[noms %in% wins])
 # if we don't care about this, we can alternatively just add all columns after they're created. 
 if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
   oscars = cbind(oscars,x,xw)
-} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("sag_nom",noms[noms %in% wins],sep=""))], x[,colnames(x)%in%c(paste("sag_won",noms[noms %in% wins],sep=""))])
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("sag_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("sag_won",wins[wins %in% noms],sep=""))])
 } 
 dim(oscars)
 ```
@@ -1238,22 +1063,12 @@ for(i in 1:ncol(xw)){
 colnames(xw) = gsub(" ","_",colnames(xw))
 colnames(xw) = paste("cc_won",colnames(xw),sep="_")
 
-ccYoung = xw$young
-
+# two different ways to spell the family film live action award. 
 cc_fam_action = xw$`cc_won_Best_Family_Film_(Live_Action)` + xw$`cc_won_Best_Family_Film_-_Live_Action` 
 
-cc_comedy_actor = xw$cc_won_Best_Actor_in_a_Comedy + xw$cc_won_Best_Actor_in_a_Comedy_Movie
-  
-cc_comedy = xw$cc_won_Best_Comedy + xw$cc_won_Best_Comedy_Movie
-unique(cc_comedy)
-length(which(cc_comedy==0))
-length(which(cc_comedy==1))
-length(which(cc_comedy==2))
+
 max(cc_fam_action)
-max(cc_comedy_actor)
-max(cc_comedy)
-# ok, looks like the comedy awards were separate after-all??? 
-# I think what we should do is just make a column that states it won at least one... because this #is wayyy too confusing
+
 
 DropCols = c("cc_won_Best_Family_Film_(Live_Action)","cc_won_Best_Family_Film_-_Live_Action","cc_won_") 
 
@@ -1304,15 +1119,8 @@ colnames(x) = paste("cc_nom",colnames(x),sep="_")
 
 cc_fam_action = x$`cc_nom_Best_Family_Film_(Live_Action)` + x$`cc_nom_Best_Family_Film_-_Live_Action` 
 
-cc_comedy_actor = x$cc_nom_Best_Actor_in_a_Comedy + x$cc_nom_Best_Actor_in_a_Comedy_Movie
-  
-cc_comedy = x$cc_nom_Best_Comedy + x$cc_nom_Best_Comedy_Movie
-
 max(cc_fam_action)
-max(cc_comedy_actor)
-max(cc_comedy)
-# ok, looks like the comedy awards were separate after-all??? 
-# I think what we should do is just make a column that states it won at least one... because this #is wayyy too confusing
+
 
 DropCols = c("cc_nom_Best_Family_Film_(Live_Action)","cc_nom_Best_Family_Film_-_Live_Action","cc_nom_") 
 
@@ -1335,7 +1143,7 @@ length(noms[noms %in% wins])
 # if we don't care about this, we can alternatively just add all columns after they're created. 
 if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
   oscars = cbind(oscars,x,xw)
-} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("cc_nom",noms[noms %in% wins],sep=""))], x[,colnames(x)%in%c(paste("cc_won",noms[noms %in% wins],sep=""))])
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("cc_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("cc_won",wins[wins %in% noms],sep=""))])
 } 
 dim(oscars)
 ```
@@ -1428,7 +1236,7 @@ length(noms[noms %in% wins])
 # if we don't care about this, we can alternatively just add all columns after they're created. 
 if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
   oscars = cbind(oscars,x,xw)
-} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("dg_nom",noms[noms %in% wins],sep=""))], x[,colnames(x)%in%c(paste("dg_won",noms[noms %in% wins],sep=""))])
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("dg_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("dg_won",wins[wins %in% noms],sep=""))])
 } 
 dim(oscars)
 ```
@@ -1524,7 +1332,7 @@ length(noms[noms %in% wins])
 # if we don't care about this, we can alternatively just add all columns after they're created. 
 if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
   oscars = cbind(oscars,x,xw)
-} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("pg_nom",noms[noms %in% wins],sep=""))], x[,colnames(x)%in%c(paste("pg_won",noms[noms %in% wins],sep=""))])
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("pg_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("pg_won",wins[wins %in% noms],sep=""))])
 } 
 dim(oscars)
 
@@ -1566,17 +1374,6 @@ for(i in 1:ncol(xw)){
 
 colnames(xw) = gsub(" ","_",colnames(xw))
 colnames(xw) = paste("adg_won",colnames(xw),sep="_")
-
-adg_Fantasy_Period = xw$adg_won_Fantasy_Film + xw$adg_won_Period_or_Fantasy_Film 
-
-adgfp2 = xw$adg_won_Period_or_Fantasy_Film+ xw$adg_won_Period_Film
-
-max(adg_Fantasy_Period)
-max(adgfp2)
-#so SOMEHOW you can win both the fantasy film award AND the best fantasy film OR period film
-# even though there wasn't an award for one OR the other... just fantasy or just period...
-# when I checked online.. 
-# I guess I'll keep it in. 
 
 DropCols = c("adg_won_")
 dim(xw)
@@ -1620,15 +1417,6 @@ for(i in 1:ncol(x)){
 colnames(x) = gsub(" ","_",colnames(x))
 colnames(x) = paste("adg_nom",colnames(x),sep="_")
 
-adg_Fantasy_Period = x$adg_nom_Fantasy_Film + x$adg_nom_Period_or_Fantasy_Film 
-
-adgfp2 = x$adg_nom_Period_or_Fantasy_Film+ x$adg_nom_Period_Film
-
-max(adg_Fantasy_Period)
-max(adgfp2)
-#so SOMEHOW you can be nominated for both the fantasy film award AND the best fantasy film OR period film
-# this is madness. 
-# I guess I'll keep it in. 
 
 DropCols = c("adg_nom_")
 dim(x)
@@ -1647,7 +1435,7 @@ length(noms[noms %in% wins])
 # if we don't care about this, we can alternatively just add all columns after they're created. 
 if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
   oscars = cbind(oscars,x,xw)
-} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("adg_nom",noms[noms %in% wins],sep=""))], x[,colnames(x)%in%c(paste("adg_won",noms[noms %in% wins],sep=""))])
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("adg_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("adg_won",wins[wins %in% noms],sep=""))])
 } 
 dim(oscars)
 ```
@@ -1688,39 +1476,15 @@ for(i in 1:ncol(xw)){
 colnames(xw) = gsub(" ","_",colnames(xw))
 colnames(xw) = paste("wg_won",colnames(xw),sep="_")
 
-wg_ad_scrnply = xw$wg_won_Adapted_Screenplay + xw$wg_won_Best_Adapted_Screenplay
 
-wg_orig_scrnply = xw$wg_won_Original_Screenplay + xw$wg_won_Best_Original_Screenplay
 
-max(wg_ad_scrnply)
-max(wg_orig_scrnply)
-# there's a best adapted screenplay award and adapted screenplay award that you can win TWICE?
-# as well as original, but the awards in 2018 showed only 1... ridiculous... 
-# something's wrong here... 
 
-# after filtering through the data with a view statement, every time a movie got best adapted 
-# or original screenplay, it also won the counterpart award... 
 
-# I think we'll squish them together. 
-
-for(i in 1:length(wg_ad_scrnply)){
-  if(wg_ad_scrnply[i]>1){
-    wg_ad_scrnply[i] =1
-  }
-}
-
-for(i in 1:length(wg_orig_scrnply)){
-  if(wg_orig_scrnply[i]>1){
-    wg_orig_scrnply[i] =1
-  }
-}
-
-DropCols = c("wg_won_","wg_won_Original_Screenplay","wg_won_Best_Original_Screenplay","wg_won_Adapted_Screenplay", "wg_won_Best_Adapted_Screenplay")
+DropCols = c("wg_won_")
 dim(xw)
 length(DropCols)
 xw = xw[,!colnames(xw)%in%DropCols]
 dim(xw)
-xw = cbind(xw,wg_ad_scrnply,wg_orig_scrnply)
 ```
 # Writers guild nominated
 ```{r}
@@ -1759,40 +1523,12 @@ for(i in 1:ncol(x)){
 colnames(x) = gsub(" ","_",colnames(x))
 colnames(x) = paste("wg_nom",colnames(x),sep="_")
 
-wg_ad_scrnply = x$wg_nom_Adapted_Screenplay + x$wg_nom_Best_Adapted_Screenplay
 
-wg_orig_scrnply = x$wg_nom_Original_Screenplay + x$wg_nom_Best_Original_Screenplay
-
-max(wg_ad_scrnply)
-max(wg_orig_scrnply)
-# there's a best adapted screenplay award and adapted screenplay award that you can win TWICE?
-# as well as original, but the awards in 2018 showed only 1... ridiculous... 
-# something's wrong here... 
-
-# after filtering through the data with a view statement, every time a movie got best adapted 
-# or original screenplay, it also won the counterpart award... 
-
-# I think we'll squish them together. 
-
-for(i in 1:length(wg_ad_scrnply)){
-  if(wg_ad_scrnply[i]>1){
-    wg_ad_scrnply[i] =1
-  }
-}
-
-for(i in 1:length(wg_orig_scrnply)){
-  if(wg_orig_scrnply[i]>1){
-    wg_orig_scrnply[i] =1
-  }
-}
-
-DropCols = c("wg_nom_","wg_nom_Original_Screenplay","wg_nom_Best_Original_Screenplay","wg_nom_Adapted_Screenplay", "wg_nom_Best_Adapted_Screenplay")
+DropCols = c("wg_nom_")
 dim(x)
 length(DropCols)
 x = x[,!colnames(x)%in%DropCols]
 dim(x)
-x = cbind(x,wg_ad_scrnply,wg_orig_scrnply)
-
 ####
 
 noms = gsub("wg_nom","",colnames(x))
@@ -1805,7 +1541,7 @@ length(noms[noms %in% wins])
 # if we don't care about this, we can alternatively just add all columns after they're created. 
 if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
   oscars = cbind(oscars,x,xw)
-} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("wg_nom",noms[noms %in% wins],sep=""))], x[,colnames(x)%in%c(paste("wg_won",noms[noms %in% wins],sep=""))])
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("wg_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("wg_won",wins[wins %in% noms],sep=""))])
 } 
 dim(oscars)
 ```
@@ -1846,31 +1582,1109 @@ for(i in 1:ncol(xw)){
 colnames(xw) = gsub(" ","_",colnames(xw))
 colnames(xw) = paste("cdg_won",colnames(xw),sep="_")
 
-wg_ad_scrnply = xw$wg_won_Adapted_Screenplay + xw$wg_won_Best_Adapted_Screenplay
+```
+# costume designers guild nominated categories 
+```{r}
+sum(is.na(oscars$Costume_Designers_Guild_nominated_categories))
 
-wg_orig_scrnply = xw$wg_won_Original_Screenplay + xw$wg_won_Best_Original_Screenplay
+oscars[which(is.na(oscars$Costume_Designers_Guild_nominated_categories)==TRUE),]$Costume_Designers_Guild_nominated_categories = "none"
 
-max(wg_ad_scrnply)
-max(wg_orig_scrnply)
 
-# I think we'll squish them together because this is CLEARLY  a typo. 
+cdgnom_unique = unique(oscars$Costume_Designers_Guild_nominated_categories)
 
-for(i in 1:length(wg_ad_scrnply)){
-  if(wg_ad_scrnply[i]>1){
-    wg_ad_scrnply[i] =1
+soup = c()
+for(i in 1:length(cdgnom_unique)){
+  soup = append(soup,unlist(strsplit(cdgnom_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+x = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(x) = new_cols
+
+for(i in 1:ncol(x)){
+  # iterate over columns
+  for(j in 1:nrow(x)){
+    # then rows
+    # if the string with the column name is in the string for the awards_nom column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(x[i]),oscars$Costume_Designers_Guild_nominated_categories[j])==TRUE)){ 
+      x[j,i] = 1
+      }
+    else{
+      x[j,i] = 0
+    }
   }
 }
 
-for(i in 1:length(wg_orig_scrnply)){
-  if(wg_orig_scrnply[i]>1){
-    wg_orig_scrnply[i] =1
+colnames(x) = gsub(" ","_",colnames(x))
+colnames(x) = paste("cdg_nom",colnames(x),sep="_")
+
+noms = gsub("cdg_nom","",colnames(x))
+wins = gsub("cdg_won","",colnames(xw))
+
+length(wins[wins %in% noms])
+length(noms[noms %in% wins])
+# so, now, we will add the nominated and award columns for films that have been both nominated 
+# for and won that award in the dataset
+# if we don't care about this, we can alternatively just add all columns after they're created. 
+if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
+  oscars = cbind(oscars,x,xw)
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("cdg_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("cdg_won",wins[wins %in% noms],sep=""))])
+} 
+dim(oscars)
+```
+
+# Online Film TV association won 
+```{r}
+oscars[which(is.na(oscars$Online_Film_Television_Association_won_categories)==TRUE),]$Online_Film_Television_Association_won_categories = "none"
+
+
+oftvwon_unique = unique(oscars$Online_Film_Television_Association_won_categories)
+
+soup = c()
+for(i in 1:length(oftvwon_unique)){
+  soup = append(soup,unlist(strsplit(oftvwon_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+xw = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(xw) = new_cols
+
+for(i in 1:ncol(xw)){
+  # iterate over columns
+  for(j in 1:nrow(xw)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(xw[i]),oscars$Online_Film_Television_Association_won_categories[j])==TRUE)){ 
+      xw[j,i] = 1
+      }
+    else{
+      xw[j,i] = 0
+    }
   }
 }
 
-DropCols = c("wg_won_","wg_won_Original_Screenplay","wg_won_Best_Original_Screenplay","wg_won_Adapted_Screenplay", "wg_won_Best_Adapted_Screenplay")
-dim(xw)
+colnames(xw) = gsub(" ","_",colnames(xw))
+colnames(xw) = paste("oftv_won",colnames(xw),sep="_")
+
+# have to do it for male female breathrough because same award, different punctuation 
+
+best_male_breakthrough = xw$`oftv_won_Best_Breakthrough_Performance:_Male` + xw$`oftv_won_Best_Breakthrough_Performance_-_Male`
+
+best_female_breakthrough = xw$`oftv_won_Best_Breakthrough_Performance:_Female` + xw$`oftv_won_Best_Breakthrough_Performance_-_Female`
+
+max(best_male_breakthrough)
+max(best_female_breakthrough)
+
+
+DropCols = c("oftv_won_Best_Breakthrough_Performance:_Male","oftv_won_Best_Breakthrough_Performance_-_Male","oftv_won_Best_Breakthrough_Performance:_Female","oftv_won_Best_Breakthrough_Performance_-_Female") 
+
 length(DropCols)
+dim(xw)
 xw = xw[,!colnames(xw)%in%DropCols]
 dim(xw)
-xw = cbind(xw,wg_ad_scrnply,wg_orig_scrnply)
+
+xw = cbind(xw,best_male_breakthrough,best_female_breakthrough)
+
+
 ```
+
+# Online Film TV assoc nominated 
+
+```{r}
+oscars[which(is.na(oscars$Online_Film_Television_Association_nominated_categories)==TRUE),]$Online_Film_Television_Association_nominated_categories = "none"
+
+
+oftvnom_unique = unique(oscars$Online_Film_Television_Association_nominated_categories)
+
+soup = c()
+for(i in 1:length(oftvnom_unique)){
+  soup = append(soup,unlist(strsplit(oftvnom_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+x = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(x) = new_cols
+
+for(i in 1:ncol(x)){
+  # iterate over columns
+  for(j in 1:nrow(x)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(x[i]),oscars$Online_Film_Television_Association_nominated_categories[j])==TRUE)){ 
+      x[j,i] = 1
+      }
+    else{
+      x[j,i] = 0
+    }
+  }
+}
+
+colnames(x) = gsub(" ","_",colnames(x))
+colnames(x) = paste("oftv_nom",colnames(x),sep="_")
+
+# have to do it for male female breathrough because same award, different punctuation 
+
+best_male_breakthrough = x$`oftv_nom_Best_Breakthrough_Performance:_Male` + x$`oftv_nom_Best_Breakthrough_Performance_-_Male`
+
+best_female_breakthrough = x$`oftv_nom_Best_Breakthrough_Performance:_Female` + x$`oftv_nom_Best_Breakthrough_Performance_-_Female`
+
+max(best_male_breakthrough)
+max(best_female_breakthrough)
+
+
+DropCols = c("oftv_nom_Best_Breakthrough_Performance:_Male","oftv_nom_Best_Breakthrough_Performance_-_Male","oftv_nom_Best_Breakthrough_Performance:_Female","oftv_nom_Best_Breakthrough_Performance_-_Female") 
+
+length(DropCols)
+dim(x)
+x = x[,!colnames(x)%in%DropCols]
+dim(x)
+
+x = cbind(x,best_male_breakthrough,best_female_breakthrough)
+
+noms = gsub("oftv_nom","",colnames(x))
+wins = gsub("oftv_won","",colnames(xw))
+
+length(wins[wins %in% noms])
+length(noms[noms %in% wins])
+# so, now, we will add the nominated and award columns for films that have been both nominated 
+# for and won that award in the dataset
+# if we don't care about this, we can alternatively just add all columns after they're created. 
+if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
+  oscars = cbind(oscars,x,xw)
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("oftv_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("oftv_won",wins[wins %in% noms],sep=""))])
+} 
+dim(oscars)
+```
+# Online Film Critics Society Won Categories
+```{r}
+oscars[which(is.na(oscars$Online_Film_Critics_Society_won_categories)==TRUE),]$Online_Film_Critics_Society_won_categories = "none"
+
+
+ofcswon_unique = unique(oscars$Online_Film_Critics_Society_won_categories)
+
+soup = c()
+for(i in 1:length(ofcswon_unique)){
+  soup = append(soup,unlist(strsplit(ofcswon_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+xw = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(xw) = new_cols
+
+for(i in 1:ncol(xw)){
+  # iterate over columns
+  for(j in 1:nrow(xw)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(xw[i]),oscars$Online_Film_Critics_Society_won_categories[j])==TRUE)){ 
+      xw[j,i] = 1
+      }
+    else{
+      xw[j,i] = 0
+    }
+  }
+}
+
+colnames(xw) = gsub(" ","_",colnames(xw))
+colnames(xw) = paste("ofcs_won",colnames(xw),sep="_")
+
+# have to do it for original screenplay, adapted screenplay, only a comma differentiates them
+
+best_adpated_scrnply = xw$ofcs_won_Best_Adapted_Screenplay + xw$`ofcs_won_Best_Screenplay,_Adapted`
+
+best_orig_scrnply = xw$ofcs_won_Best_Original_Screenplay + xw$`ofcs_won_Best_Screenplay,_Original`
+
+max(best_adpated_scrnply)
+max(best_orig_scrnply)
+
+DropCols = c("ofcs_won_Best_Adapted_Screenplay","ofcs_won_Best_Screenplay,_Adapted","ofcs_won_Best_Original_Screenplay","ofcs_won_Best_Screenplay,_Original") 
+
+length(DropCols)
+dim(xw)
+xw = xw[,!colnames(xw)%in%DropCols]
+dim(xw)
+
+xw = cbind(xw,best_orig_scrnply,best_adpated_scrnply)
+```
+#Online Film Critics Society noms
+```{r}
+oscars[which(is.na(oscars$Online_Film_Critics_Society_nominated_categories)==TRUE),]$Online_Film_Critics_Society_nominated_categories = "none"
+
+
+ofcsnom_unique = unique(oscars$Online_Film_Critics_Society_nominated_categories)
+
+soup = c()
+for(i in 1:length(ofcsnom_unique)){
+  soup = append(soup,unlist(strsplit(ofcsnom_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+x = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(x) = new_cols
+
+for(i in 1:ncol(x)){
+  # iterate over columns
+  for(j in 1:nrow(x)){
+    # then rows
+    # if the string with the column name is in the string for the awards_nom column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(x[i]),oscars$Online_Film_Critics_Society_nominated_categories[j])==TRUE)){ 
+      x[j,i] = 1
+      }
+    else{
+      x[j,i] = 0
+    }
+  }
+}
+
+colnames(x) = gsub(" ","_",colnames(x))
+colnames(x) = paste("ofcs_nom",colnames(x),sep="_")
+
+# have to do it for original screenplay, adapted screenplay, only a comma differentiates them
+
+best_adpated_scrnply = x$ofcs_nom_Best_Adapted_Screenplay + x$`ofcs_nom_Best_Screenplay,_Adapted`
+
+best_orig_scrnply = x$ofcs_nom_Best_Original_Screenplay + x$`ofcs_nom_Best_Screenplay,_Original`
+
+max(best_adpated_scrnply)
+max(best_orig_scrnply)
+
+DropCols = c("ofcs_nom_","ofcs_nom_Best_Adapted_Screenplay","ofcs_nom_Best_Screenplay,_Adapted","ofcs_nom_Best_Original_Screenplay","ofcs_nom_Best_Screenplay,_Original") 
+
+length(DropCols)
+dim(x)
+x = x[,!colnames(x)%in%DropCols]
+dim(x)
+
+x = cbind(x,best_orig_scrnply,best_adpated_scrnply)
+
+
+noms = gsub("ofcs_nom","",colnames(x))
+wins = gsub("ofcs_won","",colnames(xw))
+
+length(wins[wins %in% noms])
+length(noms[noms %in% wins])
+# so, now, we will add the nominated and award columns for films that have been both nominated 
+# for and won that award in the dataset
+# if we don't care about this, we can alternatively just add all columns after they're created. 
+if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
+  oscars = cbind(oscars,x,xw)
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("ofcs_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("ofcs_won",wins[wins %in% noms],sep=""))])
+} 
+dim(oscars)
+```
+# People's Choice Won 
+
+```{r}
+oscars[which(is.na(oscars$People_Choice_won_categories)==TRUE),]$People_Choice_won_categories = "none"
+
+
+pcwon_unique = unique(oscars$People_Choice_won_categories)
+
+soup = c()
+for(i in 1:length(pcwon_unique)){
+  soup = append(soup,unlist(strsplit(pcwon_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+xw = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(xw) = new_cols
+
+for(i in 1:ncol(xw)){
+  # iterate over columns
+  for(j in 1:nrow(xw)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(xw[i]),oscars$People_Choice_won_categories[j])==TRUE)){ 
+      xw[j,i] = 1
+      }
+    else{
+      xw[j,i] = 0
+    }
+  }
+}
+
+colnames(xw) = gsub(" ","_",colnames(xw))
+colnames(xw) = paste("pc_won",colnames(xw),sep="_")
+
+# inconsistent spelling/punct for movie drama v. drama movie, movie comedy comedy movie, on screen matchup.
+
+best_drama = xw$pc_won_Favorite_Drama_Movie + xw$pc_won_Favorite_Movie_Drama
+
+best_comedy = xw$pc_won_Favorite_Movie_Comedy+ xw$pc_won_Favorite_Comedy_Movie
+
+best_onscrn_matchup = xw$`pc_won_Favorite_On-Screen_Match-Up` + xw$`pc_won_Favorite_On_Screen_Match-up`
+
+max(best_drama)
+max(best_comedy)
+max(best_onscrn_matchup)
+
+DropCols = c("pc_won_Favorite_Drama_Movie","pc_won_Favorite_Movie_Drama","pc_won_Favorite_Movie_Comedy","pc_won_Favorite_Comedy_Movie","pc_won_Favorite_On-Screen_Match-Up","pc_won_Favorite_On_Screen_Match-up") 
+
+length(DropCols)
+dim(xw)
+xw = xw[,!colnames(xw)%in%DropCols]
+dim(xw)
+
+xw = cbind(xw,best_drama,best_comedy,best_onscrn_matchup)
+```
+# PC nominated
+```{r}
+oscars[which(is.na(oscars$People_Choice_nominated_categories)==TRUE),]$People_Choice_nominated_categories = "none"
+
+
+pcnom_unique = unique(oscars$People_Choice_nominated_categories)
+
+soup = c()
+for(i in 1:length(pcnom_unique)){
+  soup = append(soup,unlist(strsplit(pcnom_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+x = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(x) = new_cols
+
+for(i in 1:ncol(x)){
+  # iterate over columns
+  for(j in 1:nrow(x)){
+    # then rows
+    # if the string with the column name is in the string for the awards_nom column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(x[i]),oscars$People_Choice_nominated_categories[j])==TRUE)){ 
+      x[j,i] = 1
+      }
+    else{
+      x[j,i] = 0
+    }
+  }
+}
+
+colnames(x) = gsub(" ","_",colnames(x))
+colnames(x) = paste("pc_nom",colnames(x),sep="_")
+
+# inconsistent spelling/punct for movie drama v. drama movie, movie comedy comedy movie, on screen matchup.
+
+best_drama = x$pc_nom_Favorite_Drama_Movie + x$pc_nom_Favorite_Movie_Drama
+
+best_comedy = x$pc_nom_Favorite_Movie_Comedy+ x$pc_nom_Favorite_Comedy_Movie
+
+best_onscrn_matchup = x$`pc_nom_Favorite_On-Screen_Match-Up` + x$`pc_nom_Favorite_On_Screen_Match-up`
+
+max(best_drama)
+max(best_comedy)
+max(best_onscrn_matchup)
+
+DropCols = c("pc_nom_Favorite_Drama_Movie","pc_nom_Favorite_Movie_Drama","pc_nom_Favorite_Movie_Comedy","pc_nom_Favorite_Comedy_Movie","pc_nom_Favorite_On-Screen_Match-Up","pc_nom_Favorite_On_Screen_Match-up") 
+
+length(DropCols)
+dim(x)
+x = x[,!colnames(x)%in%DropCols]
+dim(x)
+
+x = cbind(x,best_drama,best_comedy,best_onscrn_matchup)
+
+noms = gsub("pc_nom","",colnames(x))
+wins = gsub("pc_won","",colnames(xw))
+
+length(wins[wins %in% noms])
+length(noms[noms %in% wins])
+# so, now, we will add the nominated and award columns for films that have been both nominated 
+# for and won that award in the dataset
+# if we don't care about this, we can alternatively just add all columns after they're created. 
+if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
+  oscars = cbind(oscars,x,xw)
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("pc_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("pc_won",wins[wins %in% noms],sep=""))])
+} 
+dim(oscars)
+```
+# American Cinema Editors won categories. 
+
+```{r}
+oscars[which(is.na(oscars$American_Cinema_Editors_won_categories)==TRUE),]$American_Cinema_Editors_won_categories = "none"
+
+
+acewon_unique = unique(oscars$American_Cinema_Editors_won_categories)
+
+soup = c()
+for(i in 1:length(acewon_unique)){
+  soup = append(soup,unlist(strsplit(acewon_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+xw = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(xw) = new_cols
+
+for(i in 1:ncol(xw)){
+  # iterate over columns
+  for(j in 1:nrow(xw)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(xw[i]),oscars$American_Cinema_Editors_won_categories[j])==TRUE)){ 
+      xw[j,i] = 1
+      }
+    else{
+      xw[j,i] = 0
+    }
+  }
+}
+
+colnames(xw) = gsub(" ","_",colnames(xw))
+colnames(xw) = paste("ace_won",colnames(xw),sep="_")
+
+# inconsistent spelling/punct for movie drama v. drama movie, movie comedy comedy movie, on screen matchup.
+
+best_comedy_or_musical = xw$`ace_won_Best_Edited_Feature_Film_(Comedy_or_Musical)` + xw$`ace_won_Best_Edited_Feature_Film_-_Comedy_or_Musical`
+
+best_dramatic = xw$`ace_won_Best_Edited_Feature_Film_(Dramatic)` + xw$`ace_won_Best_Edited_Feature_Film_-_Dramatic`
+
+
+max(best_dramatic)
+max(best_comedy_or_musical)
+
+DropCols = c("ace_won_Best_Edited_Feature_Film_(Comedy_or_Musical)","ace_won_Best_Edited_Feature_Film_-_Comedy_or_Musical","ace_won_Best_Edited_Feature_Film_(Dramatic)","ace_won_Best_Edited_Feature_Film_-_Dramatic") 
+
+length(DropCols)
+dim(xw)
+xw = xw[,!colnames(xw)%in%DropCols]
+dim(xw)
+
+xw = cbind(xw,best_dramatic,best_comedy_or_musical)
+```
+# american cinema ed noms
+```{r}
+oscars[which(is.na(oscars$American_Cinema_Editors_nominated_categories)==TRUE),]$American_Cinema_Editors_nominated_categories = "none"
+
+
+acenom_unique = unique(oscars$American_Cinema_Editors_nominated_categories)
+
+soup = c()
+for(i in 1:length(acenom_unique)){
+  soup = append(soup,unlist(strsplit(acenom_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+x = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(x) = new_cols
+
+for(i in 1:ncol(x)){
+  # iterate over columns
+  for(j in 1:nrow(x)){
+    # then rows
+    # if the string with the column name is in the string for the awards_nom column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(x[i]),oscars$American_Cinema_Editors_nominated_categories[j])==TRUE)){ 
+      x[j,i] = 1
+      }
+    else{
+      x[j,i] = 0
+    }
+  }
+}
+
+colnames(x) = gsub(" ","_",colnames(x))
+colnames(x) = paste("ace_nom",colnames(x),sep="_")
+
+# inconsistent spelling/punct for movie drama v. drama movie, movie comedy comedy movie, on screen matchup.
+
+best_comedy_or_musical = x$`ace_nom_Best_Edited_Feature_Film_(Comedy_or_Musical)` + x$`ace_nom_Best_Edited_Feature_Film_-_Comedy_or_Musical`
+
+best_dramatic = x$`ace_nom_Best_Edited_Feature_Film_(Dramatic)` + x$`ace_nom_Best_Edited_Feature_Film_-_Dramatic`
+
+
+max(best_dramatic)
+max(best_comedy_or_musical)
+
+DropCols = c("ace_nom_Best_Edited_Feature_Film_(Comedy_or_Musical)","ace_nom_Best_Edited_Feature_Film_-_Comedy_or_Musical","ace_nom_Best_Edited_Feature_Film_(Dramatic)","ace_nom_Best_Edited_Feature_Film_-_Dramatic") 
+
+length(DropCols)
+dim(x)
+x = x[,!colnames(x)%in%DropCols]
+dim(x)
+
+x = cbind(x,best_dramatic,best_comedy_or_musical)
+
+noms = gsub("ace_nom","",colnames(x))
+wins = gsub("ace_won","",colnames(xw))
+
+length(wins[wins %in% noms])
+length(noms[noms %in% wins])
+# so, now, we will add the nominated and award columns for films that have been both nominated 
+# for and won that award in the dataset
+# if we don't care about this, we can alternatively just add all columns after they're created. 
+if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
+  oscars = cbind(oscars,x,xw)
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("ace_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("ace_won",wins[wins %in% noms],sep=""))])
+} 
+dim(oscars)
+```
+# Hollywood Film Won 
+```{r}
+oscars[which(is.na(oscars$Hollywood_Film_won_categories)==TRUE),]$Hollywood_Film_won_categories = "none"
+
+
+hfwon_unique = unique(oscars$Hollywood_Film_won_categories)
+
+soup = c()
+for(i in 1:length(hfwon_unique)){
+  soup = append(soup,unlist(strsplit(hfwon_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+xw = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(xw) = new_cols
+
+for(i in 1:ncol(xw)){
+  # iterate over columns
+  for(j in 1:nrow(xw)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(xw[i]),oscars$Hollywood_Film_won_categories[j])==TRUE)){ 
+      xw[j,i] = 1
+      }
+    else{
+      xw[j,i] = 0
+    }
+  }
+}
+
+colnames(xw) = gsub(" ","_",colnames(xw))
+colnames(xw) = paste("hf_won",colnames(xw),sep="_")
+
+#somehow a "" was parsed, get rid of it 
+
+DropCols = c("hf_won_") 
+
+length(DropCols)
+dim(xw)
+xw = xw[,!colnames(xw)%in%DropCols]
+dim(xw)
+
+```
+# Hollywood film nominated 
+```{r}
+oscars[which(is.na(oscars$Hollywood_Film_nominated_categories)==TRUE),]$Hollywood_Film_nominated_categories = "none"
+
+
+hfnom_unique = unique(oscars$Hollywood_Film_nominated_categories)
+
+soup = c()
+for(i in 1:length(hfnom_unique)){
+  soup = append(soup,unlist(strsplit(hfnom_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+x = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(x) = new_cols
+
+for(i in 1:ncol(x)){
+  # iterate over columns
+  for(j in 1:nrow(x)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(x[i]),oscars$Hollywood_Film_nominated_categories[j])==TRUE)){ 
+      x[j,i] = 1
+      }
+    else{
+      x[j,i] = 0
+    }
+  }
+}
+
+colnames(x) = gsub(" ","_",colnames(x))
+colnames(x) = paste("hf_nom",colnames(x),sep="_")
+
+#somehow a "" was parsed, get rid of it 
+
+DropCols = c("hf_nom_") 
+
+length(DropCols)
+dim(x)
+x = x[,!colnames(x)%in%DropCols]
+dim(x)
+
+noms = gsub("hf_nom","",colnames(x))
+wins = gsub("hf_won","",colnames(xw))
+
+length(wins[wins %in% noms])
+length(noms[noms %in% wins])
+# so, now, we will add the nominated and award columns for films that have been both nominated 
+# for and won that award in the dataset
+# if we don't care about this, we can alternatively just add all columns after they're created. 
+if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
+  oscars = cbind(oscars,x,xw)
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("hf_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("hf_won",wins[wins %in% noms],sep=""))])
+} 
+```
+# Austin Film Critics Association Won
+```{r}
+oscars[which(is.na(oscars$Austin_Film_Critics_Association_won_categories)==TRUE),]$Austin_Film_Critics_Association_won_categories = "none"
+
+
+afcawon_unique = unique(oscars$Austin_Film_Critics_Association_won_categories)
+
+soup = c()
+for(i in 1:length(afcawon_unique)){
+  soup = append(soup,unlist(strsplit(afcawon_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+xw = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(xw) = new_cols
+
+for(i in 1:ncol(xw)){
+  # iterate over columns
+  for(j in 1:nrow(xw)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(xw[i]),oscars$Austin_Film_Critics_Association_won_categories[j])==TRUE)){ 
+      xw[j,i] = 1
+      }
+    else{
+      xw[j,i] = 0
+    }
+  }
+}
+
+colnames(xw) = gsub(" ","_",colnames(xw))
+colnames(xw) = paste("afca_won",colnames(xw),sep="_")
+
+# a "" was parsed somehow 
+
+DropCols = c("afca_won_") 
+
+length(DropCols)
+dim(xw)
+xw = xw[,!colnames(xw)%in%DropCols]
+dim(xw)
+
+```
+
+```{r}
+oscars[which(is.na(oscars$Austin_Film_Critics_Association_nominated_categories)==TRUE),]$Austin_Film_Critics_Association_nominated_categories = "none"
+
+
+afcanom_unique = unique(oscars$Austin_Film_Critics_Association_nominated_categories)
+
+soup = c()
+for(i in 1:length(afcanom_unique)){
+  soup = append(soup,unlist(strsplit(afcanom_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+x = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(x) = new_cols
+
+for(i in 1:ncol(x)){
+  # iterate over columns
+  for(j in 1:nrow(x)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(x[i]),oscars$Austin_Film_Critics_Association_nominated_categories[j])==TRUE)){ 
+      x[j,i] = 1
+      }
+    else{
+      x[j,i] = 0
+    }
+  }
+}
+
+colnames(x) = gsub(" ","_",colnames(x))
+colnames(x) = paste("afca_nom",colnames(x),sep="_")
+
+# a "" was parsed somehow 
+
+DropCols = c("afca_nom_") 
+
+length(DropCols)
+dim(x)
+x = x[,!colnames(x)%in%DropCols]
+dim(x)
+
+
+noms = gsub("afca_nom","",colnames(x))
+wins = gsub("afca_won","",colnames(xw))
+
+length(wins[wins %in% noms])
+length(noms[noms %in% wins])
+# so, now, we will add the nominated and award columns for films that have been both nominated 
+# for and won that award in the dataset
+# if we don't care about this, we can alternatively just add all columns after they're created. 
+if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
+  oscars = cbind(oscars,x,xw)
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("afca_nom",noms[noms %in% wins],sep=""))],xw[,colnames(xw)%in%c(paste("afca_won",wins[wins %in% noms],sep=""))])
+} 
+```
+# Denver Film Critics Society 
+
+```{r}
+oscars[which(is.na(oscars$Denver_Film_Critics_Society_won_categories)==TRUE),]$Denver_Film_Critics_Society_won_categories = "none"
+
+
+dfcswon_unique = unique(oscars$Denver_Film_Critics_Society_won_categories)
+
+soup = c()
+for(i in 1:length(dfcswon_unique)){
+  soup = append(soup,unlist(strsplit(dfcswon_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+xw = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(xw) = new_cols
+
+for(i in 1:ncol(xw)){
+  # iterate over columns
+  for(j in 1:nrow(xw)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(xw[i]),oscars$Denver_Film_Critics_Society_won_categories[j])==TRUE)){ 
+      xw[j,i] = 1
+      }
+    else{
+      xw[j,i] = 0
+    }
+  }
+}
+
+colnames(xw) = gsub(" ","_",colnames(xw))
+colnames(xw) = paste("dfcs_won",colnames(xw),sep="_")
+
+```
+# Denver Film Critics Society Noms
+
+```{r}
+oscars[which(is.na(oscars$Denver_Film_Critics_Society_nominated_categories)==TRUE),]$Denver_Film_Critics_Society_nominated_categories = "none"
+
+
+dfcsnom_unique = unique(oscars$Denver_Film_Critics_Society_nominated_categories)
+
+soup = c()
+for(i in 1:length(dfcsnom_unique)){
+  soup = append(soup,unlist(strsplit(dfcsnom_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+x = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(x) = new_cols
+
+for(i in 1:ncol(x)){
+  # iterate over columns
+  for(j in 1:nrow(x)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(x[i]),oscars$Denver_Film_Critics_Society_nominated_categories[j])==TRUE)){ 
+      x[j,i] = 1
+      }
+    else{
+      x[j,i] = 0
+    }
+  }
+}
+
+colnames(x) = gsub(" ","_",colnames(x))
+colnames(x) = paste("dfcs_nom",colnames(x),sep="_")
+
+noms = gsub("dfcs_nom","",colnames(x))
+wins = gsub("dfcs_won","",colnames(xw))
+
+length(wins[wins %in% noms])
+length(noms[noms %in% wins])
+# so, now, we will add the nominated and award columns for films that have been both nominated 
+# for and won that award in the dataset
+# if we don't care about this, we can alternatively just add all columns after they're created. 
+if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
+  oscars = cbind(oscars,x,xw)
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("dfcs_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("dfcs_won",wins[wins %in% noms],sep=""))])
+} 
+```
+# Boston Society of Film Critics Won 
+```{r}
+oscars[which(is.na(oscars$Boston_Society_of_Film_Critics_won_categories)==TRUE),]$Boston_Society_of_Film_Critics_won_categories = "none"
+
+
+bsofcwon_unique = unique(oscars$Boston_Society_of_Film_Critics_won_categories)
+
+soup = c()
+for(i in 1:length(bsofcwon_unique)){
+  soup = append(soup,unlist(strsplit(bsofcwon_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+xw = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(xw) = new_cols
+
+for(i in 1:ncol(xw)){
+  # iterate over columns
+  for(j in 1:nrow(xw)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(xw[i]),oscars$Boston_Society_of_Film_Critics_won_categories[j])==TRUE)){ 
+      xw[j,i] = 1
+      }
+    else{
+      xw[j,i] = 0
+    }
+  }
+}
+
+colnames(xw) = gsub(" ","_",colnames(xw))
+colnames(xw) = paste("bsofc_won",colnames(xw),sep="_")
+```
+# Boston Society nominated 
+
+```{r}
+oscars[which(is.na(oscars$Boston_Society_of_Film_Critics_nominated_categories)==TRUE),]$Boston_Society_of_Film_Critics_nominated_categories = "none"
+
+
+bsofcnom_unique = unique(oscars$Boston_Society_of_Film_Critics_nominated_categories)
+
+soup = c()
+for(i in 1:length(bsofcnom_unique)){
+  soup = append(soup,unlist(strsplit(bsofcnom_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+x = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(x) = new_cols
+
+for(i in 1:ncol(x)){
+  # iterate over columns
+  for(j in 1:nrow(x)){
+    # then rows
+    # if the string with the column name is in the string for the awards_nom column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(x[i]),oscars$Boston_Society_of_Film_Critics_nominated_categories[j])==TRUE)){ 
+      x[j,i] = 1
+      }
+    else{
+      x[j,i] = 0
+    }
+  }
+}
+
+colnames(x) = gsub(" ","_",colnames(x))
+colnames(x) = paste("bsofc_nom",colnames(x),sep="_")
+
+noms = gsub("bsofc_nom","",colnames(x))
+wins = gsub("bsofc_won","",colnames(xw))
+
+length(wins[wins %in% noms])
+length(noms[noms %in% wins])
+# so, now, we will add the nominated and award columns for films that have been both nominated 
+# for and won that award in the dataset
+# if we don't care about this, we can alternatively just add all columns after they're created. 
+if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
+  oscars = cbind(oscars,x,xw)
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("bsofc_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("bsofc_won",wins[wins %in% noms],sep=""))])
+} 
+```
+# New York Film Critics Circle Won 
+
+```{r}
+oscars[which(is.na(oscars$New_York_Film_Critics_Circle_won_categories)==TRUE),]$New_York_Film_Critics_Circle_won_categories = "none"
+
+
+nyccwon_unique = unique(oscars$New_York_Film_Critics_Circle_won_categories)
+
+soup = c()
+for(i in 1:length(nyccwon_unique)){
+  soup = append(soup,unlist(strsplit(nyccwon_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+xw = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(xw) = new_cols
+
+for(i in 1:ncol(xw)){
+  # iterate over columns
+  for(j in 1:nrow(xw)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(xw[i]),oscars$New_York_Film_Critics_Circle_won_categories[j])==TRUE)){ 
+      xw[j,i] = 1
+      }
+    else{
+      xw[j,i] = 0
+    }
+  }
+}
+
+colnames(xw) = gsub(" ","_",colnames(xw))
+colnames(xw) = paste("nycc_won",colnames(xw),sep="_")
+```
+# New York Critics Circle nominated categories
+
+```{r}
+oscars[which(is.na(oscars$New_York_Film_Critics_Circle_nominated_categories)==TRUE),]$New_York_Film_Critics_Circle_nominated_categories = "none"
+
+
+nyccnom_unique = unique(oscars$New_York_Film_Critics_Circle_nominated_categories)
+
+soup = c()
+for(i in 1:length(nyccnom_unique)){
+  soup = append(soup,unlist(strsplit(nyccnom_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+x = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(x) = new_cols
+
+for(i in 1:ncol(x)){
+  # iterate over columns
+  for(j in 1:nrow(x)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(x[i]),oscars$New_York_Film_Critics_Circle_nominated_categories[j])==TRUE)){ 
+      x[j,i] = 1
+      }
+    else{
+      x[j,i] = 0
+    }
+  }
+}
+
+colnames(x) = gsub(" ","_",colnames(x))
+colnames(x) = paste("nycc_nom",colnames(x),sep="_")
+
+
+noms = gsub("nycc_nom","",colnames(x))
+wins = gsub("nycc_won","",colnames(xw))
+
+length(wins[wins %in% noms])
+length(noms[noms %in% wins])
+# so, now, we will add the nominated and award columns for films that have been both nominated 
+# for and won that award in the dataset
+# if we don't care about this, we can alternatively just add all columns after they're created. 
+if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
+  oscars = cbind(oscars,x,xw)
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("nycc_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("nycc_won",wins[wins %in% noms],sep=""))])
+} 
+
+```
+# Los Angeles Film Critics Association Won
+```{r}
+oscars[which(is.na(oscars$Los_Angeles_Film_Critics_Association_won_categories)==TRUE),]$Los_Angeles_Film_Critics_Association_won_categories = "none"
+
+
+lafcwon_unique = unique(oscars$Los_Angeles_Film_Critics_Association_won_categories)
+
+soup = c()
+for(i in 1:length(lafcwon_unique)){
+  soup = append(soup,unlist(strsplit(lafcwon_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+xw = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(xw) = new_cols
+
+for(i in 1:ncol(xw)){
+  # iterate over columns
+  for(j in 1:nrow(xw)){
+    # then rows
+    # if the string with the column name is in the string for the awards_nom column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(xw[i]),oscars$Los_Angeles_Film_Critics_Association_won_categories[j])==TRUE)){ 
+      xw[j,i] = 1
+      }
+    else{
+      xw[j,i] = 0
+    }
+  }
+}
+
+colnames(xw) = gsub(" ","_",colnames(xw))
+colnames(xw) = paste("lafc_won",colnames(xw),sep="_")
+```
+
+
+# Los Angeles Film Critics Association Nominated
+```{r}
+oscars[which(is.na(oscars$Los_Angeles_Film_Critics_Association_nominated_categories)==TRUE),]$Los_Angeles_Film_Critics_Association_nominated_categories = "none"
+
+
+lafcnom_unique = unique(oscars$Los_Angeles_Film_Critics_Association_nominated_categories)
+
+soup = c()
+for(i in 1:length(lafcnom_unique)){
+  soup = append(soup,unlist(strsplit(lafcnom_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+
+x = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(x) = new_cols
+
+for(i in 1:ncol(x)){
+  # iterate over columns
+  for(j in 1:nrow(x)){
+    # then rows
+    # if the string with the column name is in the string for the awards_nom column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(x[i]),oscars$Los_Angeles_Film_Critics_Association_nominated_categories[j])==TRUE)){ 
+      x[j,i] = 1
+      }
+    else{
+      x[j,i] = 0
+    }
+  }
+}
+
+colnames(x) = gsub(" ","_",colnames(x))
+colnames(x) = paste("lafc_nom",colnames(x),sep="_")
+
+# there was a "" that parsed, need to get rid of it. 
+
+DropCols = c("lafc_nom_")
+
+x = x[,!colnames(x)%in%DropCols]
+
+noms = gsub("lafc_nom","",colnames(x))
+wins = gsub("lafc_won","",colnames(xw))
+
+length(wins[wins %in% noms])
+length(noms[noms %in% wins])
+# so, now, we will add the nominated and award columns for films that have been both nominated 
+# for and won that award in the dataset
+# if we don't care about this, we can alternatively just add all columns after they're created. 
+if((length(wins[wins %in% noms]) == max(length(wins),length(noms))) ==TRUE){
+  oscars = cbind(oscars,x,xw)
+} else {oscars = cbind(oscars, x[,colnames(x)%in%c(paste("lafc_nom",noms[noms %in% wins],sep=""))], xw[,colnames(xw)%in%c(paste("lafc_won",wins[wins %in% noms],sep=""))])
+} 
+
+
+```
+
