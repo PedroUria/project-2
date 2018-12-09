@@ -1,13 +1,15 @@
 ---
 title: "Oscars... WHAT?"
-authors: Pedro Uria, Sean Pili and Zachary Buckley 
 date: "12/06/2018"
 output:
+  pdf_document:
+    toc: yes
   html_document:
-    toc: true
-    theme: united
     highlight: tango
-    number_sections: true
+    number_sections: yes
+    theme: united
+    toc: yes
+authors: Pedro Uria, Sean Pili and Zachary Buckley
 ---
 
 ```{r setup, include=FALSE}
@@ -66,7 +68,8 @@ package_apply_all(
     'dplyr', # because we all need a little magic
     'import',
     'rBayesianOptimization', # used in cross-validation of step-wise logistic
-    'car'
+    'car',
+    'randomForest'
   ), library)
 install_all(c(
   'tidyimpute',
@@ -174,9 +177,6 @@ num_awards_won
 ```
 (TODO: maybe do this for more movies, just to be sure). Good! This feature is fair and probably very important. 
 
-I THINK THIS IS ALL FOR THE QUIALITY CHECKS AND ALSO EDA
-
-# Model Building
 ## Data Preprocessing
 
 Let's proceed on an orderly manner. First, let's get the target column, as it will be useful for later preprocessing. 
@@ -426,7 +426,7 @@ We also want to create a `season` variable, based on the release date informatio
 
 ```{r}
 season <- function(month) {
-  retVal <- ""
+  retVal <- "Fall"
   
   if (month <= 2) {
     "Winter" # Winter [December, February]
@@ -446,6 +446,7 @@ season <- function(month) {
 oscars <- oscars %>%
   rowwise() %>%
   mutate(seasons = season(release_date.month))
+oscars$seasons = factor(oscars$seasons)
 ```
 
 All that is left is dropping the undesired columns, and ensuring the correct data types are being used.
@@ -470,7 +471,7 @@ oscars <- oscars %>%
   select(-matches("Oscar_.*_won$"))
 ```
 
-## Imputation
+### Imputation
 
 Let's figure out to handle any missing values, now that we're removed some of the columns based on the EDA from above.
 
@@ -491,7 +492,7 @@ oscars <- oscars %>% impute_mean(
 )
 ```
 
-## Train and Test Split
+### Train and Test Split
 
 and finally let's make sure that we only have the features we want for prediction, and that their types are the right ones (we did not drop `year` yet as we will use it for splitting intro training and testing)
 ```{r}
@@ -519,6 +520,8 @@ X_train <- select(oscars_train, -Oscars_won_some)
 X_test <- select(oscars_test, -Oscars_won_some)
 ```
 
+### Standardization
+
 The last step before we can train our models is standardizing. By default, R omits standardizing factor variables (TODO: Is this true?), so we do not need to be concerned about that. We will follow [this method](https://machinelearningmastery.com/pre-process-your-dataset-in-r/)
 ```{r}
 scaleParam <- preProcess(oscars_train, method=c("center", "scale"))
@@ -532,9 +535,13 @@ X_test <- predict(scaleParam, X_test)
 
 Well... it seems we are ready to train some Machine Learning models!
 
-# Modeling
+# Model Building
+
+We decided to tackle the prediction problem using a combination of Logistic Regression and Random Forest Classification because of the categorical nature of the dependent variable.
 
 ## Logistic Regression
+
+First we'll build a Multiple Logistic Regression model, then we'll attempt to improve upon it using step-wise forward variable selection. 
 
 ### Regular Logistic Regression
 
@@ -676,6 +683,8 @@ model.glm.final2 <- step(model.glm.null2, scope = formula(model.glm.all2), direc
 summary(model.glm.final2)
 ```
 
+Restricting our variable selection to reduce the multicollinearity we saw before, has the step-wise variable selection giving us a final model with only 4 variables. We discovered that all of the 'non-oscar'_nominated and 'non-oscar'_won categories sum to the values in `awards_nominations` and `awards_wins` during the EDA process, therefore we realize that it is likely inappropriate to keep them all in the model while also including `awards_wins` and/or `awards_nominations`. `awards_wins` is still statistically significant in both models.
+
 ```{r}
 model.glm.final2.test <- predict.glm(model.glm.final2,oscars_test2,type='response')
 cm <- confusionMatrix(factor(ifelse(model.glm.final2.test > 0.5,"Yes","No")),y_test)
@@ -685,14 +694,20 @@ cm$overall[1]
 cm$overall[5]
 ```
 
+Our Accuracy is still above the No Information Rate (AccuracyNull above), as with the previous model, but we did see a reduction of the overall prediction accuracy and true positive rates compared to the other step-wise model. 
+
 ```{r}
 vif(model.glm.final2)
 ```
 
+The VIF statistic is improved relative to the previous model, as none of the variables have VIF scores above 2. 
+
+#### Cross Validation
+
 Let's use 3-fold stratified cross-validation to test the variance of our predictive accuracy. We chose stratified cross-validation to ensure the proportion of class labels is maintained in each of the splits. We chose 3-folds instead of the standard 10-folds, because if we were to use smaller splits we'd risk having too few degrees of freedom to train the model, given the scarcity of the oscar winners.
 
 ```{r}
-names(model.glm.final$coefficients)
+names(model.glm.final2$coefficients)
 # Generates a list of indexes for each stratified split
 folds <- KFold(oscars$Oscars_won_some, n = 3, stratified = TRUE, seed = 42)
 # Gets a list with the number of folds
@@ -710,10 +725,7 @@ for(i in list_){
   cv.train = oscars[train_index, ]
   cv.test = oscars[test_index, ]
   # Trains the model 
-  logreg.train <- glm(Oscars_won_some~awards_wins +
-        Screen_Actors_Guild_won+Golden_Globes_won+genre_Drama
-      +Writers_Guild_won+Online_Film_Television_Association_nominated
-      +BAFTA_won, family = binomial(link = "logit"),
+  logreg.train <- glm(Oscars_won_some~awards_wins+genre_Drama+genre_Biography+certificate, family = binomial(link = "logit"),
       data = cv.train)
   # Tests the model
   glm.final.test <- predict.glm(logreg.train,cv.test,type='response')
@@ -729,17 +741,65 @@ sd(scores)
 ```
 
 
-### Approaches
 
 ## Random Forest
 
-### Su
+Now we'll attempt to train a random forest model based on all the variables, and tune the hyperparameter mtry (the number of features used at each split).
 
-### b
+```{r}
+# apparently randomForest function can't use `-` in variable names.
+oscars_train.renamed <- oscars_train %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+oscars_test.renamed <- oscars_test %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
 
-### Sections
+# Trains the model (low, med, high mtry numbers)
+ranFor.train <- function(mtry) {
+  set.seed(42)
+  return(randomForest(formula=Oscars_won_some~.,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=mtry, 
+               data=oscars_train.renamed))
+}
 
+# Tests the model
+ranFor.hitrate <- function (model) {
+  y_test_pred <- predict(model,oscars_test.renamed, type='response')
+  return(sum(y_test_pred==y_test)/length(y_test))
+}
 
+# These take a while to run...
+#scores = c()
+#for (i in seq(1,80)) {
+#  scores <- c(scores, ranFor.hitrate(ranFor.train(i)))
+#}
+#best.mtry <- which(max(scores)==scores)[1]
+# after running above, 35, 49, 67, 73 give max performance
+# to avoid really long document rebuild times... we'll just use 35
+best.mtry <- 35
+
+best.ranFor.model <- ranFor.train(best.mtry)
+
+# Computes the importance of each variable
+# by accuracy
+VI_F1 = importance(best.ranFor.model, type=1)
+# by impurity
+VI_F2 = importance(best.ranFor.model, type=2)
+
+# https://freakonometrics.hypotheses.org/19835
+barplot(t(VI_F2/sum(VI_F2)), cex.names=0.5)
+
+ranFor.hitrate(best.ranFor.model)
+
+# confusion matrix
+y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
+confusionMatrix(y_test_pred, y_test)
+```
+
+Random Forest improves our prediction accuracy over the stepwise logistic regression model. 
 
 # Conclusions 
 
