@@ -64,7 +64,9 @@ package_apply_all(
     'caret', # needed for standardizing
     'pROC', # needed for ROC curve
     'dplyr', # because we all need a little magic
-    'import'
+    'import',
+    'rBayesianOptimization', # used in cross-validation of step-wise logistic
+    'car'
   ), library)
 install_all(c(
   'tidyimpute',
@@ -536,106 +538,200 @@ Well... it seems we are ready to train some Machine Learning models!
 
 ### Regular Logistic Regression
 
+Let's just apply a Logistic Regression model based on all the available variables. 
+
 ```{r}
-# Trains the model
-oscars_train_logit <-  glm(Oscars_won_some~certificate + duration+rate+metascore+votes+user_reviews+critic_reviews+popularity+awards_wins+awards_nominations+sc.gross+seasons,
-                family = binomial(link = "logit"), data = oscars_train)
-
-cols <- c(
-  "certificate", 
-  "duration",
-  "rate",
-  "metascore",
-  "votes",
-  "user_reviews",
-  "critic_reviews",
-  "popularity",
-  "awards_wins",
-  "awards_nominations",
-  "sc.gross",
-  "seasons"
-)
-#Prints out warnings
-#Warning messages:
-#1: glm.fit: algorithm did not converge 
-#2: glm.fit: fitted probabilities numerically 0 or 1 occurred 
-summary(oscars_train_logit)
-# lol, this is maybe because of the missingness that hasn't been dealt with yet
-#sapply(oscars, function(x) sum(is.na(x)))
-# well, actually we don't have that many... because we dropped the categories features
-# for this try. popularity does have a significant number, but even so, not so sure this
-# is the problem... 
-
-
-# Tests the model
-prob_test_pred <- predict.glm(oscars_train_logit,oscars_test,type='response')
-score <- sum(ifelse(prob_test_pred > 0.5,"Yes","No")==y_test)/length(y_test)
-score
-
-
-
-oscars_train_logit2 <-  glm(Oscars_won_some~.,
-                family = binomial(link = "logit"), data = select(oscars_train, matches("genre_.*"), Oscars_won_some))
-oscars_train_logit2 <-  glm(Oscars_won_some~.,
-                family = binomial(link = "logit"), data = select(oscars_train, matches("_nominated$"), awards_wins, Oscars_won_some))
-#Prints out warnings
-#Warning messages:
-#1: glm.fit: algorithm did not converge 
-#2: glm.fit: fitted probabilities numerically 0 or 1 occurred 
-summary(oscars_train_logit2)
-# lol, this is maybe because of the missingness that hasn't been dealt with yet
-#sapply(oscars, function(x) sum(is.na(x)))
-# well, actually we don't have that many... because we dropped the categories features
-# for this try. popularity does have a significant number, but even so, not so sure this
-# is the problem... 
-
-
-# Tests the model
-prob_test_pred2 <- predict.glm(oscars_train_logit2,oscars_test,type='response')
-score <- sum(ifelse(prob_test_pred2 > 0.5,"Yes","No")==y_test)/length(y_test)
-score
-# ROC Curve
-prob=plogis(predict.glm(oscars_train_logit, type = c("response")))
-#head(prob)
-h <- roc(Oscars_won_some~prob, data=oscars_train)
-plot(h)
-# Area Under the Curve
-auc(h)
-
-# Prints the predicted probabilities of not winning any oscar (I think this is it because "NO" comes first for both y_train and y_test) for each movie
-#prob_test_pred
+model.glm.all <- glm(Oscars_won_some~., family = binomial(link = "logit"), data = oscars_train)
 ```
 
-### Other
+In viewing the summary of this model we can see that something has clearly gone wrong, in fact R gives us a warning stating that the algorithm did not converge, and that fitted probabilities numerically 0 or 1 occurred. The standard errors are all in the thousands, the z value statistics are all close to zero, and the p-values are close to 1. accross the majority of the the variable types. There are also two independent variables whose coefficients that couldn't be estimated.
+
+After a good deal of discussion, and experimentation we determined that the issue with this model was ultimately us having too few degrees of freedom for the model to successfully train with this many independent variables (hence why some estimates were NAs and p-values where all close to 1)  
+
+Having done that, lets experiment with just using a subset of the variables available:
+
+```{r}
+# Trains the model
+model.glm.subset <-  glm(Oscars_won_some~certificate + duration+rate+metascore+votes+user_reviews+critic_reviews+popularity+awards_wins+awards_nominations+sc.gross+seasons,
+                family = binomial(link = "logit"), data = oscars_train)
+```
+
+The subsetted model shows that the model estimated all the coefficients, and has more reasonable z-value and p-value statistics. The most significant features by far, appear to be `certificate`, `user_reviews`, and `award_wins`.
+
+Let's how well our model predicts the oscar winners in our training set. 
+
+```{r}
+
+# Tests the model
+model.glm.subset.test <- predict.glm(model.glm.subset,oscars_test,type='response')
+
+cm <- confusionMatrix(factor(ifelse(model.glm.subset.test > 0.5,"Yes","No")), y_test)
+
+cm$table
+cm$overall[1]
+cm$overall[5]
+```
+
+The models hit rate is ~94%. But we need to consider that most of the movies in our dataset will not win an Oscar (~92%, as shown by AccuracyNull above). Our hit rate is higher than the percentage of movies that did not win Oscars, implying that our model's predictive capability, using a 50% threshold, is an improvement over simply using our target's distribution to predict the winners.
+
+Although we had a high True Negative rate (~97%), our True positive rate was lower (~62%). This doesn't show in our hit rate, because only ~8% of our movies actually won oscars. Let us take a look at the ROC Curves, to see if a different threshold quantity would have a significant impact on the predictive capability of the model. 
+
+```{r}
+model.glm.subset.prob=plogis(predict.glm(model.glm.subset, type = c("response")))
+#head(prob)
+model.glm.subset.h <- roc(Oscars_won_some~model.glm.subset.prob, data=oscars_train)
+plot(model.glm.subset.h)
+# Area Under the Curve
+auc(model.glm.subset.h)
+```
+
+The area under the curve is ~95%, which is greater than the no data rate of ~92% that we found before implying that our model discriminates well at different thresholds.
+
+### Stepwise Logistic Regression
+
+Now we'll attempt to build a Logistic Regrssion model doing feature selection using stepwise regression with BIC as an evaluation metric.
 
 ```{r}
 # creating a null model
-glm.null <-  glm(Oscars_won_some~1,
+model.glm.null <-  glm(Oscars_won_some~1,
                 family = binomial(link = "logit"), data = oscars_train)
-glm.full <- glm(Oscars_won_some~.,
+# create a full model
+model.glm.all <- glm(Oscars_won_some~.,
                 family = binomial(link = "logit"), data = oscars_train)
-glm.final <- step(glm.null, scope = formula(glm.full), direction = "forward", k = log(nrow(oscars_train)))
+```
 
-glm.final.test <- predict.glm(glm.final,oscars_test,type='response')
-score <- sum(ifelse(glm.final.test > 0.999,"Yes","No")==y_test)/length(y_test)
-score
+```{r include=FALSE}
+# use step to apply stepwise forward selection with BIC as a evaluation metric
+model.glm.final <- step(model.glm.null, scope = formula(model.glm.all), direction = "forward", k = log(nrow(oscars_train)), trace = FALSE)
+# NOTE: The output says AIC, but we really are calculating BIC, because we are using the log of the number of observations in our dataset as our penalty term (k) instead of just the number of predictors. This seemed appropriate due to the large number of features relative the number of observations available to us, and BIC penalizes extra features more than AIC does.
+```
 
+```{r}
+summary(model.glm.final)
+```
+
+The Summary shows Std. Error terms that are much more reasonable, and only includes variables that are significant at least to the 5% level or higher. The forward stepwise variable selection chose 7 out of the 81 variables that were available to it, which allows for a much more interpretable model.
+
+Let us see how well it predicts.
+
+```{r include=FALSE}
+model.glm.final.test <- predict.glm(model.glm.final,oscars_test,type='response')
+```
+
+```{r}
+cm <- confusionMatrix(factor(ifelse(model.glm.final.test > 0.5,"Yes","No")),y_test)
+
+cm$table
+cm$overall[1]
+cm$overall[5]
+```
+
+We can see that accuracy (~97%) is appoximately 3% better than the accuracy of our manually subsetted logistic regression model from above. We aso see from the confusion table, that our True Negative rate for this model is (~98%), which is ~1% higher than the subsetted model above. Our True Positive rate in this model is ~81%, showing a dramatic increase of ~19 percentage points over the subsetted model above. 
+
+
+
+The average accuracy from the cross-validation approach (96.89%) is comparable to the accuracy shown in our model trained only from a single training set (96.93%). The standard deviation of the cross-validation accuracy is also quite low, suggesting that our model is not overfitting our data. 
+
+We still want to see how well our model discriminates at different thresholds:
+
+```{r}
 # ROC Curve
-prob=plogis(predict.glm(glm.final, type = c("response")))
+prob=plogis(predict.glm(model.glm.final, type = c("response")))
 #head(prob)
 h <- roc(Oscars_won_some~prob, data=oscars_train)
 plot(h)
 # Area Under the Curve
 auc(h)
+```
 
-confusionMatrix(factor(ifelse(glm.final.test > 0.5,"Yes","No")),y_test)
-confusionMatrix(factor(ifelse(glm.final$fitted.values > 0.5,"Yes","No")), oscars_train$Oscars_won_some)
+The ROC plot shows a definite improvement relative to the previous model, and the AUC is increased by ~3 percentage points (total of ~98%). 
+
+We also need to confirm that we aren't seeing a massive amount of multicollinearity:
+
+```{r}
+vif(model.glm.final)
+```
+
+Due to the large values for `award_wins` and `Online_Film_Television_Association_nominated`, we should probably repeat the stepwise regression process using a subset of the variables that aren't the variables that are aggregated into `award_wins`, while keeping `award_wins` available for use by the stepwise variable selection process.
+
+```{r}
+oscars_train2 <- oscars_train %>% select(-matches(".*nominated$"), -matches(".*won$"))
+oscars_test2 <- oscars_test %>% select(-matches(".*nominated$"), -matches(".*won$"))
+
+# creating a null model
+model.glm.null2 <-  glm(Oscars_won_some~1,
+                family = binomial(link = "logit"), data = oscars_train2)
+# create a full model
+model.glm.all2 <- glm(Oscars_won_some~.,
+                family = binomial(link = "logit"), data = oscars_train2)
+```
+
+```{r echo=TRUE}
+# use step to apply stepwise forward selection with BIC as a evaluation metric
+model.glm.final2 <- step(model.glm.null2, scope = formula(model.glm.all2), direction = "forward", k = log(nrow(oscars_train)), trace = FALSE)
+# NOTE: The output says AIC, but we really are calculating BIC, because we are using the log of the number of observations in our dataset as our penalty term (k) instead of just the number of predictors. This seemed appropriate due to the large number of features relative the number of observations available to us, and BIC penalizes extra features more than AIC does.
+```
+
+```{r}
+summary(model.glm.final2)
+```
+
+```{r}
+model.glm.final2.test <- predict.glm(model.glm.final2,oscars_test2,type='response')
+cm <- confusionMatrix(factor(ifelse(model.glm.final2.test > 0.5,"Yes","No")),y_test)
+
+cm$table
+cm$overall[1]
+cm$overall[5]
+```
+
+```{r}
+vif(model.glm.final2)
+```
+
+Let's use 3-fold stratified cross-validation to test the variance of our predictive accuracy. We chose stratified cross-validation to ensure the proportion of class labels is maintained in each of the splits. We chose 3-folds instead of the standard 10-folds, because if we were to use smaller splits we'd risk having too few degrees of freedom to train the model, given the scarcity of the oscar winners.
+
+```{r}
+names(model.glm.final$coefficients)
+# Generates a list of indexes for each stratified split
+folds <- KFold(oscars$Oscars_won_some, n = 3, stratified = TRUE, seed = 42)
+# Gets a list with the number of folds
+list_ = 1:length(folds)
+# Gets a list to store the accuracy for each split
+scores = c()
+# For each fold
+for(i in list_){
+  # Gets the indexes for getting the training data
+  list_train = list_[-i]
+  train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
+  # Gets the index for the testing data
+  test_index = folds[[i]]
+  # Splits between training and testing
+  cv.train = oscars[train_index, ]
+  cv.test = oscars[test_index, ]
+  # Trains the model 
+  logreg.train <- glm(Oscars_won_some~awards_wins +
+        Screen_Actors_Guild_won+Golden_Globes_won+genre_Drama
+      +Writers_Guild_won+Online_Film_Television_Association_nominated
+      +BAFTA_won, family = binomial(link = "logit"),
+      data = cv.train)
+  # Tests the model
+  glm.final.test <- predict.glm(logreg.train,cv.test,type='response')
+  score <- sum(ifelse(glm.final.test > 0.5,"Yes","No")
+             ==cv.test$Oscars_won_some)/
+  length(cv.test$Oscars_won_some)
+  # Appends the score to the list 
+  scores = c(scores, score)
+}
+scores
+mean(scores)
+sd(scores)
 ```
 
 
 ### Approaches
 
-## Decision Tree
+## Random Forest
 
 ### Su
 
