@@ -508,7 +508,7 @@ oscars =<span class="st"> </span><span class="kw">cbind</span>(oscars,gen)
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">subset</span>(oscars, genre_Documentary <span class="op">==</span><span class="st"> &quot;Yes&quot;</span>)<span class="op">$</span>movie</code></pre></div>
 <pre><code>## [1] &quot;Jim: The James Foley Story&quot;</code></pre>
 <p>and <a href="https://www.imdb.com/title/tt5278466/awards">here</a> are the it received or was nominated for. As it is not that relevant and very annoying (TODO: Find a better way if there is one), let’s drop it</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">oscars<span class="op">$</span>genre_Documentary &lt;-<span class="st"> </span><span class="ot">NULL</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">oscars &lt;-<span class="st"> </span>oscars <span class="op">%&gt;%</span><span class="st"> </span><span class="kw">select</span>(<span class="op">-</span>genre_Documentary)</code></pre></div>
 <p>The next feature that needs some manipulation is <code>gross</code>. The value of the dollar changed from 2000 to 2016, so we’ll need to adjust the values we have to be based on a standard. We’ll use the value of the dollar in the year 2000 as a common unit. To convert between 2001 through 2016 dollar amounts, and the 2000 dollar amounts we’ll need something to use as a conversion factor. We’ll use the Consumer Price Index (CPI) data provided by the United States Bureau of Labor Statistics, to get that conversion factor. Their site (<a href="https://data.bls.gov/timeseries/CUUR0000SA0" class="uri">https://data.bls.gov/timeseries/CUUR0000SA0</a>), provides CPI data by month output to an excel sheet. We’ve opted to include the Annual average, and base our conversion on that. After cleaning the data up in excel, we saved it off in CPI_20181201.csv, which we’ll load now.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Pull in Consumer Price Index Data from </span>
 <span class="co"># Burea of Labor Statistics to account for inflation</span>
@@ -780,25 +780,23 @@ missing_per_column[missing_per_column <span class="op">!=</span><span class="st"
 ##                                        seasons 
 ##                                    &quot;character&quot;</code></pre>
 <p>TODO: again.. maybe we should drop the <code>Oscar_..._nominated</code> if we are only going to predict <code>Oscars_won_some</code> and use only <code>Oscar_nominated</code> instead.</p>
-<p>Everything seems fine. Let’s move onto splitting the data. Let’s use from 2000 to 2012 (75%) for training and from 2013 to 2016 for testing. There is no need to stratify as we are not doing a random split, that is, both train and test sets will have the same proportion of class labels, because we are splitting by years.</p>
+<p>Everything seems fine. Let’s move onto splitting the data. Let’s use from 2000 to 2012 (~75%) for training and from 2013 to 2016 for testing. There is no need to stratify as we are not doing a random split, that is, both train and test sets will have the same proportion of class labels, because we are splitting by years.</p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Splits by years</span>
 oscars_train &lt;-<span class="st"> </span><span class="kw">subset</span>(oscars, year <span class="op">%in%</span><span class="st"> </span><span class="kw">c</span>(<span class="dv">2000</span><span class="op">:</span><span class="dv">2012</span>)) 
 oscars_test &lt;-<span class="st"> </span><span class="kw">subset</span>(oscars, year <span class="op">%in%</span><span class="st"> </span><span class="kw">c</span>(<span class="dv">2013</span><span class="op">:</span><span class="dv">2016</span>))
 
 <span class="co"># Drops year</span>
-oscars<span class="op">$</span>year &lt;-<span class="st"> </span><span class="ot">NULL</span>
-oscars_train<span class="op">$</span>year &lt;-<span class="st"> </span><span class="ot">NULL</span>
-oscars_test<span class="op">$</span>year &lt;-<span class="st"> </span><span class="ot">NULL</span>
+oscars &lt;-<span class="st"> </span><span class="kw">select</span>(oscars, <span class="op">-</span>year)
+oscars_train &lt;-<span class="st"> </span><span class="kw">select</span>(oscars_train, <span class="op">-</span>year)
+oscars_test &lt;-<span class="st"> </span><span class="kw">select</span>(oscars_test, <span class="op">-</span>year)
 
 <span class="co"># Gets the target</span>
 y_train =<span class="st"> </span>oscars_train<span class="op">$</span>Oscars_won_some
 y_test =<span class="st"> </span>oscars_test<span class="op">$</span>Oscars_won_some
 <span class="co"># Drops the target column</span>
 <span class="co"># </span><span class="al">TODO</span><span class="co">: Not sure it's necessary to drop target col?</span>
-X_train &lt;-<span class="st"> </span>oscars_train
-X_train<span class="op">$</span>Oscars_won_some &lt;-<span class="st"> </span><span class="ot">NULL</span>
-X_test &lt;-<span class="st"> </span>oscars_test
-X_test<span class="op">$</span>Oscars_won_some &lt;-<span class="st"> </span><span class="ot">NULL</span></code></pre></div>
+X_train &lt;-<span class="st"> </span><span class="kw">select</span>(oscars_train, <span class="op">-</span>Oscars_won_some)
+X_test &lt;-<span class="st"> </span><span class="kw">select</span>(oscars_test, <span class="op">-</span>Oscars_won_some)</code></pre></div>
 <p>The last step before we can train our models is standardizing. By default, R omits standardizing factor variables (TODO: Is this true?), so we do not need to be concerned about that. We will follow <a href="https://machinelearningmastery.com/pre-process-your-dataset-in-r/">this method</a></p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">scaleParam &lt;-<span class="st"> </span><span class="kw">preProcess</span>(oscars_train, <span class="dt">method=</span><span class="kw">c</span>(<span class="st">&quot;center&quot;</span>, <span class="st">&quot;scale&quot;</span>))
 oscars_train &lt;-<span class="st"> </span><span class="kw">predict</span>(scaleParam, oscars_train)
@@ -817,14 +815,68 @@ X_test &lt;-<span class="st"> </span><span class="kw">predict</span>(scaleParam,
 <div id="regular-logistic-regression" class="section level3">
 <h3><span class="header-section-number">4.1.1</span> Regular Logistic Regression</h3>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Trains the model</span>
-<span class="co">#oscars_train_logit &lt;-  glm(Oscars_won_some~.,</span>
-<span class="co">#                 family = binomial(link = &quot;logit&quot;), data = oscars_train)</span>
+oscars_train_logit &lt;-<span class="st">  </span><span class="kw">glm</span>(Oscars_won_some<span class="op">~</span>certificate <span class="op">+</span><span class="st"> </span>duration<span class="op">+</span>rate<span class="op">+</span>metascore<span class="op">+</span>votes<span class="op">+</span>user_reviews<span class="op">+</span>critic_reviews<span class="op">+</span>popularity<span class="op">+</span>awards_wins<span class="op">+</span>awards_nominations<span class="op">+</span>sc.gross<span class="op">+</span>seasons,
+                <span class="dt">family =</span> <span class="kw">binomial</span>(<span class="dt">link =</span> <span class="st">&quot;logit&quot;</span>), <span class="dt">data =</span> oscars_train)
+
+cols &lt;-<span class="st"> </span><span class="kw">c</span>(
+  <span class="st">&quot;certificate&quot;</span>, 
+  <span class="st">&quot;duration&quot;</span>,
+  <span class="st">&quot;rate&quot;</span>,
+  <span class="st">&quot;metascore&quot;</span>,
+  <span class="st">&quot;votes&quot;</span>,
+  <span class="st">&quot;user_reviews&quot;</span>,
+  <span class="st">&quot;critic_reviews&quot;</span>,
+  <span class="st">&quot;popularity&quot;</span>,
+  <span class="st">&quot;awards_wins&quot;</span>,
+  <span class="st">&quot;awards_nominations&quot;</span>,
+  <span class="st">&quot;sc.gross&quot;</span>,
+  <span class="st">&quot;seasons&quot;</span>
+)
 <span class="co">#Prints out warnings</span>
 <span class="co">#Warning messages:</span>
 <span class="co">#1: glm.fit: algorithm did not converge </span>
 <span class="co">#2: glm.fit: fitted probabilities numerically 0 or 1 occurred </span>
-<span class="co">#summary(oscars_train_logit)</span>
-<span class="co"># lol, this is maybe because of the missingness that hasn't been dealt with yet</span>
+<span class="kw">summary</span>(oscars_train_logit)</code></pre></div>
+<pre><code>## 
+## Call:
+## glm(formula = Oscars_won_some ~ certificate + duration + rate + 
+##     metascore + votes + user_reviews + critic_reviews + popularity + 
+##     awards_wins + awards_nominations + sc.gross + seasons, family = binomial(link = &quot;logit&quot;), 
+##     data = oscars_train)
+## 
+## Deviance Residuals: 
+##      Min        1Q    Median        3Q       Max  
+## -2.16445  -0.23498  -0.13117  -0.07171   2.75539  
+## 
+## Coefficients:
+##                    Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)        -4.32490    0.52752  -8.199 2.43e-16 ***
+## certificate         1.01118    0.29876   3.385 0.000713 ***
+## duration            0.01589    0.21327   0.075 0.940591    
+## rate                0.58506    0.47079   1.243 0.213971    
+## metascore          -0.26677    0.34783  -0.767 0.443106    
+## votes               0.30555    0.37251   0.820 0.412067    
+## user_reviews       -1.12821    0.34191  -3.300 0.000968 ***
+## critic_reviews     -0.28440    0.23520  -1.209 0.226582    
+## popularity          0.01367    0.18682   0.073 0.941673    
+## awards_wins         1.41191    0.31666   4.459 8.24e-06 ***
+## awards_nominations  0.67838    0.30074   2.256 0.024089 *  
+## sc.gross            0.24473    0.31281   0.782 0.433998    
+## seasonsFall         0.16370    0.53452   0.306 0.759414    
+## seasonsSpring       0.27068    0.59041   0.458 0.646625    
+## seasonsSummer       0.31067    0.61407   0.506 0.612913    
+## seasonsWinter       0.09879    0.64677   0.153 0.878605    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 471.29  on 863  degrees of freedom
+## Residual deviance: 221.92  on 848  degrees of freedom
+## AIC: 253.92
+## 
+## Number of Fisher Scoring iterations: 7</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># lol, this is maybe because of the missingness that hasn't been dealt with yet</span>
 <span class="co">#sapply(oscars, function(x) sum(is.na(x)))</span>
 <span class="co"># well, actually we don't have that many... because we dropped the categories features</span>
 <span class="co"># for this try. popularity does have a significant number, but even so, not so sure this</span>
@@ -832,23 +884,870 @@ X_test &lt;-<span class="st"> </span><span class="kw">predict</span>(scaleParam,
 
 
 <span class="co"># Tests the model</span>
-<span class="co">#prob_test_pred &lt;- predict.glm(oscars_train_logit,oscars_test,type='response')</span>
-<span class="co">#score &lt;- sum(ifelse(prob_test_pred &gt; 0.5,1,0)==y_test)/length(y_test)</span>
-<span class="co">#score</span>
+prob_test_pred &lt;-<span class="st"> </span><span class="kw">predict.glm</span>(oscars_train_logit,oscars_test,<span class="dt">type=</span><span class="st">'response'</span>)
+score &lt;-<span class="st"> </span><span class="kw">sum</span>(<span class="kw">ifelse</span>(prob_test_pred <span class="op">&gt;</span><span class="st"> </span><span class="fl">0.5</span>,<span class="st">&quot;Yes&quot;</span>,<span class="st">&quot;No&quot;</span>)<span class="op">==</span>y_test)<span class="op">/</span><span class="kw">length</span>(y_test)
+score</code></pre></div>
+<pre><code>## [1] 0.9425287</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">oscars_train_logit2 &lt;-<span class="st">  </span><span class="kw">glm</span>(Oscars_won_some<span class="op">~</span>.,
+                <span class="dt">family =</span> <span class="kw">binomial</span>(<span class="dt">link =</span> <span class="st">&quot;logit&quot;</span>), <span class="dt">data =</span> <span class="kw">select</span>(oscars_train, <span class="kw">matches</span>(<span class="st">&quot;genre_.*&quot;</span>), Oscars_won_some))</code></pre></div>
+<pre><code>## Warning: glm.fit: fitted probabilities numerically 0 or 1 occurred</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">oscars_train_logit2 &lt;-<span class="st">  </span><span class="kw">glm</span>(Oscars_won_some<span class="op">~</span>.,
+                <span class="dt">family =</span> <span class="kw">binomial</span>(<span class="dt">link =</span> <span class="st">&quot;logit&quot;</span>), <span class="dt">data =</span> <span class="kw">select</span>(oscars_train, <span class="kw">matches</span>(<span class="st">&quot;_nominated$&quot;</span>), awards_wins, Oscars_won_some))
+<span class="co">#Prints out warnings</span>
+<span class="co">#Warning messages:</span>
+<span class="co">#1: glm.fit: algorithm did not converge </span>
+<span class="co">#2: glm.fit: fitted probabilities numerically 0 or 1 occurred </span>
+<span class="kw">summary</span>(oscars_train_logit2)</code></pre></div>
+<pre><code>## 
+## Call:
+## glm(formula = Oscars_won_some ~ ., family = binomial(link = &quot;logit&quot;), 
+##     data = select(oscars_train, matches(&quot;_nominated$&quot;), awards_wins, 
+##         Oscars_won_some))
+## 
+## Deviance Residuals: 
+##      Min        1Q    Median        3Q       Max  
+## -2.53271  -0.07867  -0.06905  -0.04304   2.60844  
+## 
+## Coefficients:
+##                                                 Estimate Std. Error
+## (Intercept)                                    -6.295569   0.711621
+## Oscar_Best_Picture_nominatedYes                -0.458235   1.075288
+## Oscar_Best_Director_nominatedYes                2.058902   1.007241
+## Oscar_Best_Actor_nominatedYes                   2.287954   0.877646
+## Oscar_Best_Actress_nominatedYes                 2.651077   0.860824
+## Oscar_Best_Supporting_Actor_nominatedYes        2.961119   0.823903
+## Oscar_Best_Supporting_Actress_nominatedYes      2.708747   0.969743
+## Oscar_Best_AdaScreen_nominatedYes               1.036900   0.958222
+## Oscar_Best_OriScreen_nominatedYes               1.700067   0.881613
+## Oscar_nominated                                -0.864446   0.622011
+## Golden_Globes_nominated                         0.716123   0.380525
+## BAFTA_nominated                                 0.125903   0.407967
+## Screen_Actors_Guild_nominated                  -0.217235   0.350784
+## Critics_Choice_nominated                       -0.036325   0.412490
+## Directors_Guild_nominated                       0.981888   0.343227
+## Producers_Guild_nominated                      -0.618220   0.335537
+## Art_Directors_Guild_nominated                  -0.058818   0.307417
+## Writers_Guild_nominated                         0.246591   0.261101
+## Costume_Designers_Guild_nominated              -0.028093   0.306655
+## Online_Film_Television_Association_nominated   -1.611799   0.502996
+## Online_Film_Critics_Society_nominated          -1.261087   0.386578
+## People_Choice_nominated                        -0.268189   0.308167
+## London_Critics_Circle_Film_nominated           -0.312389   0.305513
+## American_Cinema_Editors_nominated               0.071909   0.326174
+## Hollywood_Film_nominated                       -0.011960   0.226105
+## Austin_Film_Critics_Association_nominated       0.165416   0.203078
+## Denver_Film_Critics_Society_nominated          -0.109954   0.186323
+## Boston_Society_of_Film_Critics_nominated       -0.222170   0.287715
+## New_York_Film_Critics_Circle_nominated          0.005401   0.295732
+## Los_Angeles_Film_Critics_Association_nominated -0.647354   0.351917
+## awards_wins                                     3.966755   0.709936
+##                                                z value Pr(&gt;|z|)    
+## (Intercept)                                     -8.847  &lt; 2e-16 ***
+## Oscar_Best_Picture_nominatedYes                 -0.426 0.669998    
+## Oscar_Best_Director_nominatedYes                 2.044 0.040943 *  
+## Oscar_Best_Actor_nominatedYes                    2.607 0.009136 ** 
+## Oscar_Best_Actress_nominatedYes                  3.080 0.002072 ** 
+## Oscar_Best_Supporting_Actor_nominatedYes         3.594 0.000326 ***
+## Oscar_Best_Supporting_Actress_nominatedYes       2.793 0.005218 ** 
+## Oscar_Best_AdaScreen_nominatedYes                1.082 0.279205    
+## Oscar_Best_OriScreen_nominatedYes                1.928 0.053810 .  
+## Oscar_nominated                                 -1.390 0.164602    
+## Golden_Globes_nominated                          1.882 0.059845 .  
+## BAFTA_nominated                                  0.309 0.757617    
+## Screen_Actors_Guild_nominated                   -0.619 0.535728    
+## Critics_Choice_nominated                        -0.088 0.929826    
+## Directors_Guild_nominated                        2.861 0.004226 ** 
+## Producers_Guild_nominated                       -1.842 0.065405 .  
+## Art_Directors_Guild_nominated                   -0.191 0.848267    
+## Writers_Guild_nominated                          0.944 0.344950    
+## Costume_Designers_Guild_nominated               -0.092 0.927007    
+## Online_Film_Television_Association_nominated    -3.204 0.001353 ** 
+## Online_Film_Critics_Society_nominated           -3.262 0.001106 ** 
+## People_Choice_nominated                         -0.870 0.384152    
+## London_Critics_Circle_Film_nominated            -1.023 0.306542    
+## American_Cinema_Editors_nominated                0.220 0.825510    
+## Hollywood_Film_nominated                        -0.053 0.957814    
+## Austin_Film_Critics_Association_nominated        0.815 0.415333    
+## Denver_Film_Critics_Society_nominated           -0.590 0.555109    
+## Boston_Society_of_Film_Critics_nominated        -0.772 0.440003    
+## New_York_Film_Critics_Circle_nominated           0.018 0.985428    
+## Los_Angeles_Film_Critics_Association_nominated  -1.840 0.065840 .  
+## awards_wins                                      5.587  2.3e-08 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 471.29  on 863  degrees of freedom
+## Residual deviance: 116.19  on 833  degrees of freedom
+## AIC: 178.19
+## 
+## Number of Fisher Scoring iterations: 8</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># lol, this is maybe because of the missingness that hasn't been dealt with yet</span>
+<span class="co">#sapply(oscars, function(x) sum(is.na(x)))</span>
+<span class="co"># well, actually we don't have that many... because we dropped the categories features</span>
+<span class="co"># for this try. popularity does have a significant number, but even so, not so sure this</span>
+<span class="co"># is the problem... </span>
 
-<span class="co"># ROC Curve</span>
-<span class="co">#prob=plogis(predict.glm(oscars_train_logit, type = c(&quot;response&quot;)))</span>
+
+<span class="co"># Tests the model</span>
+prob_test_pred2 &lt;-<span class="st"> </span><span class="kw">predict.glm</span>(oscars_train_logit2,oscars_test,<span class="dt">type=</span><span class="st">'response'</span>)
+score &lt;-<span class="st"> </span><span class="kw">sum</span>(<span class="kw">ifelse</span>(prob_test_pred2 <span class="op">&gt;</span><span class="st"> </span><span class="fl">0.5</span>,<span class="st">&quot;Yes&quot;</span>,<span class="st">&quot;No&quot;</span>)<span class="op">==</span>y_test)<span class="op">/</span><span class="kw">length</span>(y_test)
+score</code></pre></div>
+<pre><code>## [1] 0.9501916</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># ROC Curve</span>
+prob=<span class="kw">plogis</span>(<span class="kw">predict.glm</span>(oscars_train_logit, <span class="dt">type =</span> <span class="kw">c</span>(<span class="st">&quot;response&quot;</span>)))
 <span class="co">#head(prob)</span>
-<span class="co">#h &lt;- roc(Oscars_won_some~prob, data=oscars_train)</span>
-<span class="co">#plot(h)</span>
-<span class="co"># Area Under the Curve</span>
-<span class="co">#auc(h)</span>
-
-<span class="co"># Prints the predicted probabilities of not winning any oscar (I think this is it because &quot;NO&quot; comes first for both y_train and y_test) for each movie</span>
+h &lt;-<span class="st"> </span><span class="kw">roc</span>(Oscars_won_some<span class="op">~</span>prob, <span class="dt">data=</span>oscars_train)
+<span class="kw">plot</span>(h)</code></pre></div>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABUAAAAPACAMAAADDuCPrAAADAFBMVEUAAAABAQECAgIDAwMEBAQFBQUGBgYHBwcICAgJCQkKCgoLCwsMDAwNDQ0ODg4PDw8QEBARERESEhITExMUFBQVFRUWFhYXFxcYGBgZGRkaGhobGxscHBwdHR0eHh4fHx8gICAhISEiIiIjIyMkJCQlJSUmJiYnJycoKCgpKSkqKiorKyssLCwtLS0uLi4vLy8wMDAxMTEyMjIzMzM0NDQ1NTU2NjY3Nzc4ODg5OTk6Ojo7Ozs8PDw9PT0+Pj4/Pz9AQEBBQUFCQkJDQ0NERERFRUVGRkZHR0dISEhJSUlKSkpLS0tMTExNTU1OTk5PT09QUFBRUVFSUlJTU1NUVFRVVVVWVlZXV1dYWFhZWVlaWlpbW1tcXFxdXV1eXl5fX19gYGBhYWFiYmJjY2NkZGRlZWVmZmZnZ2doaGhpaWlqampra2tsbGxtbW1ubm5vb29wcHBxcXFycnJzc3N0dHR1dXV2dnZ3d3d4eHh5eXl6enp7e3t8fHx9fX1+fn5/f3+AgICBgYGCgoKDg4OEhISFhYWGhoaHh4eIiIiJiYmKioqLi4uMjIyNjY2Ojo6Pj4+QkJCRkZGSkpKTk5OUlJSVlZWWlpaXl5eYmJiZmZmampqbm5ucnJydnZ2enp6fn5+goKChoaGioqKjo6OkpKSlpaWmpqanp6eoqKipqamqqqqrq6usrKytra2urq6vr6+wsLCxsbGysrKzs7O0tLS1tbW2tra3t7e4uLi5ubm6urq7u7u8vLy9vb2+vr6/v7/AwMDBwcHCwsLDw8PExMTFxcXGxsbHx8fIyMjJycnKysrLy8vMzMzNzc3Ozs7Pz8/Q0NDR0dHS0tLT09PU1NTV1dXW1tbX19fY2NjZ2dna2trb29vc3Nzd3d3e3t7f39/g4ODh4eHi4uLj4+Pk5OTl5eXm5ubn5+fo6Ojp6enq6urr6+vs7Ozt7e3u7u7v7+/w8PDx8fHy8vLz8/P09PT19fX29vb39/f4+Pj5+fn6+vr7+/v8/Pz9/f3+/v7////isF19AAAACXBIWXMAAB2HAAAdhwGP5fFlAAAgAElEQVR4nO3de4BT5Zn48WcGRgcrIBfBG4qi1vVSRarjirq0ivdSd6to1V7UitBaBUvVUlF0V6DaWkq3XYvd/lSgW7t2xVpFbW3Fio5XRrQ/oQq4ipe2iAr1wmUmm5NM5ppk8p6cc97zPu/380dzckjePJNmvs5MThLJAABCEdsDAICrCCgAhERAASAkAgoAIRFQAAiJgAJASAQUAEIioAAQEgEFgJAIKACEREABICQCCgAhEVAACImAAkBIBBQAQiKgABASAQWAkAgoAIREQAEgJAIKACERUAAIiYACQEgEFABCIqAAEBIBBYCQCCgAhERAASAkAgoAIRFQAAiJgAJASAQUAEIioAAQEgEFgJAIKACEREABICQCCgAhEVAACImAAkBIBBQAQiKgABASAQWAkAgoAIREQAEgJAIKACERUAAIiYACQEgEFABCIqAAEBIBBYCQCCgAhERAASAkAgoAIRFQAAiJgAJASAQUAEIioAAQEgEFgJAIKACEREABICQCCgAhEVAACImAAkBIBBQAQiKgABASAQWAkAgoAIREQAEgJAIKACERUAAIiYACQEgEFABCIqAAEBIBBYCQCCgAhERAASAkAgoAIRFQAAiJgAJASKkO6Pu/+iUAROXelogbleqAXiMAUqPfEUcMtz1DlX4dcaNSHdApcvAZANLh3Hl33PIF20NUZQ+ZH3GjUh7Qm2yPACDvo/vvuO9D20NU51wCCsAGBf0koACs0NBPAgrABhX9dDKg615uenrlm6GuSkCBVNDRT+cCuvza0QPyRw/0bZi+3PjqBBRIAyX9dCygL43rfAjWaWsMFyCgQApo6adbAV06MKhm/xENJ5/UsHfuB9Ehz5itQEAB+9T006mArt9FZMT0ZYWzK2aPFBm+wWgJAgpYp6efTgX0epGzO93tLdNFbjRagoACtinqp1MBHSXDNnXZNUYajJYgoIBlmvrpVEAHyqSuu+bKYKMlCChgl6p+OhXQerm8667bpI/REgQUsEpXP50K6J4ytuuuyTLCaAkCCtikrJ9OBfQ8qXmg854X+8kFRksQUMAibf10KqCNtVI/q8NLON+ZN0hqnzBagoAC9qjrp1MBzVwpIjWjp82Zf9/ihXOvHluXPTvNbAUCClijr59uBTQzq67zSznrZhouQEABWxT207GAZlZPHNqezyETVplen4AClmjsp2sBzWSamxbOmDLhwikzFjzbbH5tAgrYobKf7gW0OgQUsEJnPwkogPgp7ScBBRA7rf10PKAfrl271ugKBNQ1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" width="672" /></p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Area Under the Curve</span>
+<span class="kw">auc</span>(h)</code></pre></div>
+<pre><code>## Area under the curve: 0.9546</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Prints the predicted probabilities of not winning any oscar (I think this is it because &quot;NO&quot; comes first for both y_train and y_test) for each movie</span>
 <span class="co">#prob_test_pred</span></code></pre></div>
 </div>
 <div id="other" class="section level3">
 <h3><span class="header-section-number">4.1.2</span> Other</h3>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># creating a null model</span>
+glm.null &lt;-<span class="st">  </span><span class="kw">glm</span>(Oscars_won_some<span class="op">~</span><span class="dv">1</span>,
+                <span class="dt">family =</span> <span class="kw">binomial</span>(<span class="dt">link =</span> <span class="st">&quot;logit&quot;</span>), <span class="dt">data =</span> oscars_train)
+glm.full &lt;-<span class="st"> </span><span class="kw">glm</span>(Oscars_won_some<span class="op">~</span>.,
+                <span class="dt">family =</span> <span class="kw">binomial</span>(<span class="dt">link =</span> <span class="st">&quot;logit&quot;</span>), <span class="dt">data =</span> oscars_train)</code></pre></div>
+<pre><code>## Warning: glm.fit: algorithm did not converge</code></pre>
+<pre><code>## Warning: glm.fit: fitted probabilities numerically 0 or 1 occurred</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">glm.final &lt;-<span class="st"> </span><span class="kw">step</span>(glm.null, <span class="dt">scope =</span> <span class="kw">formula</span>(glm.full), <span class="dt">direction =</span> <span class="st">&quot;forward&quot;</span>, <span class="dt">k =</span> <span class="kw">log</span>(<span class="kw">nrow</span>(oscars_train)))</code></pre></div>
+<pre><code>## Start:  AIC=478.05
+## Oscars_won_some ~ 1
+## 
+##                                                  Df Deviance    AIC
+## + awards_wins                                     1   266.14 279.66
+## + awards_nominations                              1   275.37 288.90
+## + Golden_Globes_won                               1   276.13 289.65
+## + Screen_Actors_Guild_won                         1   276.64 290.17
+## + Screen_Actors_Guild_nominated                   1   284.60 298.12
+## + Golden_Globes_nominated                         1   288.74 302.27
+## + Oscar_nominated                                 1   294.17 307.70
+## + Directors_Guild_nominated                       1   306.91 320.43
+## + Oscar_Best_Picture_nominated                    1   307.39 320.91
+## + Oscar_Best_Director_nominated                   1   314.87 328.39
+## + Critics_Choice_won                              1   315.72 329.24
+## + Critics_Choice_nominated                        1   325.82 339.34
+## + BAFTA_won                                       1   334.65 348.17
+## + BAFTA_nominated                                 1   341.63 355.16
+## + Writers_Guild_nominated                         1   350.72 364.25
+## + Online_Film_Television_Association_nominated    1   361.87 375.40
+## + American_Cinema_Editors_nominated               1   364.35 377.88
+## + Boston_Society_of_Film_Critics_nominated        1   370.09 383.61
+## + Producers_Guild_nominated                       1   371.36 384.88
+## + metascore                                       1   381.85 395.38
+## + Online_Film_Critics_Society_nominated           1   382.10 395.63
+## + Writers_Guild_won                               1   384.43 397.96
+## + Boston_Society_of_Film_Critics_won              1   385.17 398.69
+## + New_York_Film_Critics_Circle_nominated          1   386.30 399.82
+## + Oscar_Best_Supporting_Actor_nominated           1   389.34 402.87
+## + Oscar_Best_Supporting_Actress_nominated         1   391.41 404.93
+## + London_Critics_Circle_Film_nominated            1   395.02 408.54
+## + Oscar_Best_Actor_nominated                      1   400.47 413.99
+## + Los_Angeles_Film_Critics_Association_nominated  1   402.79 416.31
+## + rate                                            1   403.75 417.27
+## + genre_Drama                                     1   404.87 418.39
+## + Online_Film_Television_Association_won          1   405.36 418.88
+## + New_York_Film_Critics_Circle_won                1   408.83 422.36
+## + Los_Angeles_Film_Critics_Association_won        1   411.22 424.74
+## + Directors_Guild_won                             1   414.72 428.24
+## + Oscar_Best_AdaScreen_nominated                  1   414.93 428.46
+## + Austin_Film_Critics_Association_nominated       1   415.17 428.69
+## + London_Critics_Circle_Film_won                  1   416.29 429.82
+## + Denver_Film_Critics_Society_won                 1   418.62 432.15
+## + American_Cinema_Editors_won                     1   420.92 434.45
+## + Online_Film_Critics_Society_won                 1   422.63 436.15
+## + Art_Directors_Guild_nominated                   1   424.51 438.04
+## + Austin_Film_Critics_Association_won             1   424.98 438.51
+## + Oscar_Best_OriScreen_nominated                  1   425.13 438.65
+## + Costume_Designers_Guild_nominated               1   430.00 443.53
+## + Producers_Guild_won                             1   431.10 444.62
+## + Denver_Film_Critics_Society_nominated           1   434.38 447.90
+## + Hollywood_Film_won                              1   438.11 451.63
+## + Hollywood_Film_nominated                        1   438.19 451.71
+## + genre_Biography                                 1   441.25 454.77
+## + Oscar_Best_Actress_nominated                    1   441.57 455.09
+## + genre_Action                                    1   444.70 458.23
+## + critic_reviews                                  1   446.44 459.96
+## + votes                                           1   447.69 461.21
+## + Art_Directors_Guild_won                         1   450.55 464.07
+## + duration                                        1   452.08 465.60
+## + certificate                                     1   452.38 465.90
+## + `genre_Sci-Fi`                                  1   456.99 470.51
+## + genre_Adventure                                 1   458.33 471.85
+## + Costume_Designers_Guild_won                     1   459.34 472.86
+## + user_reviews                                    1   459.73 473.25
+## + genre_Family                                    1   459.83 473.36
+## + genre_Animation                                 1   461.58 475.10
+## + genre_Horror                                    1   462.10 475.62
+## &lt;none&gt;                                                471.29 478.05
+## + genre_Comedy                                    1   465.48 479.00
+## + genre_Musical                                   1   466.51 480.03
+## + genre_History                                   1   466.76 480.28
+## + genre_Western                                   1   468.77 482.30
+## + popularity                                      1   468.91 482.43
+## + genre_Fantasy                                   1   469.28 482.80
+## + genre_Sport                                     1   470.23 483.76
+## + genre_Mystery                                   1   470.60 484.12
+## + genre_Romance                                   1   470.64 484.16
+## + sc.gross                                        1   470.77 484.29
+## + genre_War                                       1   471.10 484.62
+## + People_Choice_nominated                         1   471.14 484.67
+## + genre_Crime                                     1   471.25 484.78
+## + genre_Thriller                                  1   471.27 484.79
+## + People_Choice_won                               1   471.27 484.79
+## + seasons                                         4   456.06 489.87
+## 
+## Step:  AIC=279.66
+## Oscars_won_some ~ awards_wins
+## 
+##                                                  Df Deviance    AIC
+## + Screen_Actors_Guild_won                         1   213.23 233.51
+## + Screen_Actors_Guild_nominated                   1   216.06 236.35
+## + Golden_Globes_won                               1   227.33 247.61
+## + Online_Film_Television_Association_won          1   229.98 250.27
+## + Golden_Globes_nominated                         1   230.19 250.48
+## + genre_Drama                                     1   232.24 252.53
+## + Oscar_Best_Supporting_Actor_nominated           1   238.71 259.00
+## + genre_Adventure                                 1   240.20 260.48
+## + Oscar_Best_Supporting_Actress_nominated         1   240.95 261.24
+## + Oscar_Best_Director_nominated                   1   242.42 262.70
+## + Oscar_Best_Actor_nominated                      1   245.59 265.88
+## + genre_Biography                                 1   245.86 266.14
+## + certificate                                     1   245.91 266.19
+## + Writers_Guild_nominated                         1   246.69 266.97
+## + Oscar_Best_Picture_nominated                    1   247.44 267.73
+## + Online_Film_Critics_Society_won                 1   248.72 269.00
+## + genre_Action                                    1   248.73 269.01
+## + Directors_Guild_nominated                       1   250.93 271.21
+## + genre_Animation                                 1   252.10 272.38
+## + Oscar_Best_Actress_nominated                    1   252.69 272.98
+## + Writers_Guild_won                               1   253.15 273.43
+## + user_reviews                                    1   253.80 274.09
+## + Oscar_nominated                                 1   253.93 274.22
+## + genre_Fantasy                                   1   255.12 275.40
+## + sc.gross                                        1   256.14 276.42
+## + People_Choice_nominated                         1   256.39 276.67
+## + genre_Family                                    1   256.42 276.70
+## + Critics_Choice_nominated                        1   256.81 277.09
+## + `genre_Sci-Fi`                                  1   256.97 277.26
+## + Online_Film_Television_Association_nominated    1   257.81 278.10
+## + People_Choice_won                               1   258.30 278.58
+## + Online_Film_Critics_Society_nominated           1   259.20 279.49
+## &lt;none&gt;                                                266.14 279.66
+## + awards_nominations                              1   259.59 279.88
+## + votes                                           1   260.84 281.12
+## + Boston_Society_of_Film_Critics_nominated        1   261.01 281.30
+## + Oscar_Best_AdaScreen_nominated                  1   261.20 281.49
+## + BAFTA_nominated                                 1   261.54 281.82
+## + American_Cinema_Editors_nominated               1   261.60 281.89
+## + Art_Directors_Guild_won                         1   262.08 282.37
+## + Critics_Choice_won                              1   262.17 282.45
+## + Los_Angeles_Film_Critics_Association_won        1   263.12 283.41
+## + Boston_Society_of_Film_Critics_won              1   263.32 283.61
+## + Oscar_Best_OriScreen_nominated                  1   263.36 283.65
+## + BAFTA_won                                       1   263.52 283.81
+## + London_Critics_Circle_Film_nominated            1   263.75 284.03
+## + genre_Sport                                     1   263.79 284.07
+## + Los_Angeles_Film_Critics_Association_nominated  1   263.82 284.10
+## + genre_Horror                                    1   264.00 284.28
+## + Directors_Guild_won                             1   264.03 284.32
+## + genre_Romance                                   1   264.14 284.42
+## + critic_reviews                                  1   264.14 284.43
+## + genre_Western                                   1   264.20 284.48
+## + Producers_Guild_nominated                       1   264.21 284.50
+## + London_Critics_Circle_Film_won                  1   264.24 284.53
+## + Costume_Designers_Guild_nominated               1   264.65 284.94
+## + rate                                            1   264.74 285.02
+## + metascore                                       1   264.76 285.04
+## + Denver_Film_Critics_Society_won                 1   264.88 285.17
+## + genre_Musical                                   1   265.00 285.29
+## + popularity                                      1   265.01 285.29
+## + New_York_Film_Critics_Circle_nominated          1   265.24 285.53
+## + Hollywood_Film_nominated                        1   265.31 285.60
+## + Denver_Film_Critics_Society_nominated           1   265.45 285.73
+## + Producers_Guild_won                             1   265.46 285.75
+## + genre_Crime                                     1   265.50 285.78
+## + genre_Comedy                                    1   265.54 285.82
+## + Hollywood_Film_won                              1   265.54 285.82
+## + Austin_Film_Critics_Association_nominated       1   265.69 285.97
+## + genre_History                                   1   265.69 285.98
+## + American_Cinema_Editors_won                     1   265.88 286.17
+## + genre_Mystery                                   1   265.95 286.24
+## + Art_Directors_Guild_nominated                   1   266.04 286.32
+## + New_York_Film_Critics_Circle_won                1   266.04 286.33
+## + Costume_Designers_Guild_won                     1   266.11 286.39
+## + duration                                        1   266.11 286.40
+## + Austin_Film_Critics_Association_won             1   266.13 286.42
+## + genre_War                                       1   266.14 286.42
+## + genre_Thriller                                  1   266.14 286.42
+## + seasons                                         4   263.84 304.41
+## 
+## Step:  AIC=233.51
+## Oscars_won_some ~ awards_wins + Screen_Actors_Guild_won
+## 
+##                                                  Df Deviance    AIC
+## + Golden_Globes_won                               1   183.80 210.85
+## + genre_Drama                                     1   185.40 212.45
+## + Golden_Globes_nominated                         1   187.10 214.15
+## + Online_Film_Television_Association_won          1   189.07 216.11
+## + Screen_Actors_Guild_nominated                   1   192.71 219.76
+## + Oscar_Best_Director_nominated                   1   193.54 220.59
+## + People_Choice_nominated                         1   194.91 221.95
+## + certificate                                     1   195.71 222.75
+## + Writers_Guild_won                               1   196.26 223.31
+## + sc.gross                                        1   196.52 223.57
+## + genre_Action                                    1   197.03 224.07
+## + Oscar_Best_Actor_nominated                      1   197.34 224.39
+## + People_Choice_won                               1   197.66 224.71
+## + genre_Adventure                                 1   197.66 224.71
+## + Oscar_Best_Supporting_Actor_nominated           1   198.46 225.51
+## + Oscar_Best_Supporting_Actress_nominated         1   199.38 226.43
+## + Oscar_Best_Picture_nominated                    1   201.94 228.98
+## + Writers_Guild_nominated                         1   202.18 229.23
+## + Directors_Guild_nominated                       1   202.70 229.75
+## + user_reviews                                    1   203.19 230.24
+## + `genre_Sci-Fi`                                  1   203.23 230.28
+## + genre_Biography                                 1   203.63 230.68
+## + Boston_Society_of_Film_Critics_won              1   203.75 230.79
+## + Boston_Society_of_Film_Critics_nominated        1   204.79 231.83
+## + Oscar_Best_OriScreen_nominated                  1   205.08 232.13
+## + Oscar_Best_Actress_nominated                    1   205.72 232.77
+## + Online_Film_Television_Association_nominated    1   205.98 233.02
+## &lt;none&gt;                                                213.23 233.51
+## + genre_Animation                                 1   207.34 234.39
+## + awards_nominations                              1   207.55 234.60
+## + Oscar_nominated                                 1   207.98 235.02
+## + BAFTA_won                                       1   208.09 235.13
+## + London_Critics_Circle_Film_nominated            1   208.16 235.20
+## + Critics_Choice_nominated                        1   208.34 235.39
+## + Art_Directors_Guild_won                         1   208.49 235.54
+## + genre_Family                                    1   208.53 235.58
+## + genre_Fantasy                                   1   209.13 236.17
+## + votes                                           1   209.30 236.34
+## + genre_Romance                                   1   209.70 236.75
+## + Online_Film_Critics_Society_won                 1   209.71 236.75
+## + American_Cinema_Editors_nominated               1   209.91 236.96
+## + genre_Western                                   1   209.94 236.99
+## + metascore                                       1   209.99 237.04
+## + Costume_Designers_Guild_won                     1   210.50 237.55
+## + Oscar_Best_AdaScreen_nominated                  1   210.66 237.71
+## + London_Critics_Circle_Film_won                  1   210.71 237.76
+## + BAFTA_nominated                                 1   210.76 237.81
+## + New_York_Film_Critics_Circle_nominated          1   211.10 238.15
+## + genre_Horror                                    1   211.54 238.59
+## + Austin_Film_Critics_Association_won             1   211.69 238.74
+## + popularity                                      1   211.83 238.87
+## + rate                                            1   212.05 239.10
+## + Producers_Guild_nominated                       1   212.17 239.22
+## + duration                                        1   212.17 239.22
+## + critic_reviews                                  1   212.25 239.30
+## + Art_Directors_Guild_nominated                   1   212.27 239.31
+## + Austin_Film_Critics_Association_nominated       1   212.49 239.53
+## + Denver_Film_Critics_Society_nominated           1   212.67 239.72
+## + Los_Angeles_Film_Critics_Association_won        1   212.80 239.84
+## + Directors_Guild_won                             1   212.81 239.85
+## + genre_War                                       1   212.86 239.91
+## + New_York_Film_Critics_Circle_won                1   212.89 239.94
+## + Hollywood_Film_won                              1   212.90 239.95
+## + Hollywood_Film_nominated                        1   212.92 239.97
+## + genre_Musical                                   1   212.95 240.00
+## + Online_Film_Critics_Society_nominated           1   213.00 240.05
+## + American_Cinema_Editors_won                     1   213.03 240.07
+## + Los_Angeles_Film_Critics_Association_nominated  1   213.04 240.08
+## + Denver_Film_Critics_Society_won                 1   213.08 240.12
+## + genre_Mystery                                   1   213.13 240.18
+## + Producers_Guild_won                             1   213.14 240.19
+## + genre_History                                   1   213.14 240.19
+## + genre_Thriller                                  1   213.15 240.20
+## + genre_Crime                                     1   213.19 240.24
+## + genre_Sport                                     1   213.22 240.27
+## + Costume_Designers_Guild_nominated               1   213.22 240.27
+## + Critics_Choice_won                              1   213.23 240.27
+## + genre_Comedy                                    1   213.23 240.27
+## + seasons                                         4   210.12 257.45
+## 
+## Step:  AIC=210.85
+## Oscars_won_some ~ awards_wins + Screen_Actors_Guild_won + Golden_Globes_won
+## 
+##                                                  Df Deviance    AIC
+## + genre_Drama                                     1   161.58 195.39
+## + Writers_Guild_won                               1   164.06 197.87
+## + Oscar_Best_Director_nominated                   1   167.98 201.79
+## + Online_Film_Television_Association_won          1   168.44 202.25
+## + Screen_Actors_Guild_nominated                   1   168.78 202.59
+## + sc.gross                                        1   170.01 203.82
+## + genre_Action                                    1   170.36 204.17
+## + certificate                                     1   170.45 204.26
+## + genre_Adventure                                 1   170.69 204.50
+## + Oscar_Best_Supporting_Actor_nominated           1   171.96 205.76
+## + Online_Film_Television_Association_nominated    1   173.14 206.95
+## + Oscar_Best_OriScreen_nominated                  1   173.85 207.66
+## + Austin_Film_Critics_Association_won             1   174.24 208.04
+## + Boston_Society_of_Film_Critics_won              1   174.85 208.66
+## + People_Choice_won                               1   175.20 209.01
+## + Oscar_Best_Actor_nominated                      1   175.42 209.23
+## + genre_Biography                                 1   175.96 209.76
+## + People_Choice_nominated                         1   176.06 209.87
+## + Writers_Guild_nominated                         1   176.50 210.31
+## + user_reviews                                    1   176.54 210.35
+## + Golden_Globes_nominated                         1   176.77 210.58
+## &lt;none&gt;                                                183.80 210.85
+## + Boston_Society_of_Film_Critics_nominated        1   177.07 210.88
+## + Oscar_Best_Supporting_Actress_nominated         1   177.34 211.15
+## + Oscar_Best_Picture_nominated                    1   177.84 211.65
+## + Austin_Film_Critics_Association_nominated       1   177.96 211.76
+## + Directors_Guild_nominated                       1   177.96 211.77
+## + genre_Animation                                 1   177.99 211.80
+## + `genre_Sci-Fi`                                  1   178.75 212.56
+## + Oscar_Best_Actress_nominated                    1   178.80 212.61
+## + BAFTA_won                                       1   179.74 213.55
+## + Costume_Designers_Guild_won                     1   179.86 213.67
+## + genre_Family                                    1   180.43 214.23
+## + Art_Directors_Guild_won                         1   180.64 214.45
+## + Critics_Choice_nominated                        1   180.89 214.70
+## + London_Critics_Circle_Film_nominated            1   181.00 214.81
+## + genre_Thriller                                  1   181.43 215.24
+## + metascore                                       1   181.49 215.30
+## + genre_Horror                                    1   181.99 215.79
+## + genre_Romance                                   1   182.11 215.92
+## + awards_nominations                              1   182.11 215.92
+## + Oscar_nominated                                 1   182.19 215.99
+## + Art_Directors_Guild_nominated                   1   182.20 216.00
+## + New_York_Film_Critics_Circle_nominated          1   182.21 216.02
+## + genre_Western                                   1   182.24 216.04
+## + London_Critics_Circle_Film_won                  1   182.35 216.16
+## + votes                                           1   182.39 216.20
+## + Los_Angeles_Film_Critics_Association_nominated  1   182.56 216.37
+## + duration                                        1   182.68 216.49
+## + Directors_Guild_won                             1   182.75 216.56
+## + Denver_Film_Critics_Society_won                 1   182.86 216.66
+## + genre_History                                   1   182.86 216.67
+## + Los_Angeles_Film_Critics_Association_won        1   182.90 216.71
+## + genre_War                                       1   182.92 216.72
+## + genre_Fantasy                                   1   182.97 216.77
+## + Denver_Film_Critics_Society_nominated           1   182.98 216.79
+## + American_Cinema_Editors_nominated               1   182.99 216.79
+## + critic_reviews                                  1   183.07 216.88
+## + rate                                            1   183.18 216.99
+## + Hollywood_Film_won                              1   183.30 217.10
+## + Hollywood_Film_nominated                        1   183.31 217.12
+## + Oscar_Best_AdaScreen_nominated                  1   183.42 217.22
+## + Critics_Choice_won                              1   183.46 217.27
+## + popularity                                      1   183.47 217.28
+## + BAFTA_nominated                                 1   183.47 217.28
+## + Online_Film_Critics_Society_won                 1   183.51 217.31
+## + genre_Crime                                     1   183.51 217.32
+## + genre_Musical                                   1   183.59 217.40
+## + Producers_Guild_nominated                       1   183.60 217.40
+## + genre_Comedy                                    1   183.61 217.42
+## + Online_Film_Critics_Society_nominated           1   183.62 217.43
+## + genre_Sport                                     1   183.66 217.47
+## + genre_Mystery                                   1   183.67 217.48
+## + Costume_Designers_Guild_nominated               1   183.71 217.51
+## + American_Cinema_Editors_won                     1   183.74 217.54
+## + Producers_Guild_won                             1   183.77 217.58
+## + New_York_Film_Critics_Circle_won                1   183.80 217.61
+## + seasons                                         4   182.06 236.15
+## 
+## Step:  AIC=195.39
+## Oscars_won_some ~ awards_wins + Screen_Actors_Guild_won + Golden_Globes_won + 
+##     genre_Drama
+## 
+##                                                  Df Deviance    AIC
+## + Writers_Guild_won                               1   145.44 186.01
+## + Oscar_Best_Director_nominated                   1   151.08 191.65
+## + Online_Film_Television_Association_nominated    1   152.73 193.30
+## + Oscar_Best_OriScreen_nominated                  1   153.26 193.83
+## + Online_Film_Television_Association_won          1   153.98 194.55
+## &lt;none&gt;                                                161.58 195.39
+## + People_Choice_won                               1   155.00 195.57
+## + Screen_Actors_Guild_nominated                   1   155.17 195.74
+## + Austin_Film_Critics_Association_won             1   155.49 196.06
+## + Oscar_Best_Supporting_Actor_nominated           1   155.69 196.26
+## + Boston_Society_of_Film_Critics_won              1   156.57 197.14
+## + BAFTA_won                                       1   157.00 197.57
+## + Austin_Film_Critics_Association_nominated       1   157.18 197.75
+## + Oscar_Best_Picture_nominated                    1   157.49 198.06
+## + Directors_Guild_nominated                       1   157.66 198.23
+## + Oscar_Best_Actor_nominated                      1   157.69 198.26
+## + genre_Biography                                 1   157.82 198.39
+## + Writers_Guild_nominated                         1   157.95 198.52
+## + certificate                                     1   158.13 198.71
+## + Costume_Designers_Guild_won                     1   158.18 198.75
+## + genre_Thriller                                  1   158.20 198.77
+## + American_Cinema_Editors_nominated               1   158.53 199.10
+## + duration                                        1   158.73 199.30
+## + People_Choice_nominated                         1   158.83 199.40
+## + user_reviews                                    1   158.89 199.46
+## + Oscar_Best_Supporting_Actress_nominated         1   159.23 199.80
+## + Los_Angeles_Film_Critics_Association_nominated  1   159.28 199.85
+## + sc.gross                                        1   159.29 199.86
+## + Art_Directors_Guild_won                         1   159.32 199.89
+## + Producers_Guild_nominated                       1   159.34 199.91
+## + genre_Adventure                                 1   159.39 199.96
+## + Golden_Globes_nominated                         1   159.49 200.06
+## + Boston_Society_of_Film_Critics_nominated        1   159.58 200.15
+## + Online_Film_Critics_Society_nominated           1   159.61 200.18
+## + Critics_Choice_nominated                        1   159.67 200.24
+## + genre_Action                                    1   159.93 200.50
+## + Directors_Guild_won                             1   160.04 200.61
+## + Oscar_Best_Actress_nominated                    1   160.17 200.74
+## + Art_Directors_Guild_nominated                   1   160.28 200.85
+## + Los_Angeles_Film_Critics_Association_won        1   160.37 200.94
+## + Oscar_nominated                                 1   160.40 200.97
+## + genre_Horror                                    1   160.40 200.97
+## + genre_Family                                    1   160.44 201.01
+## + New_York_Film_Critics_Circle_won                1   160.45 201.02
+## + `genre_Sci-Fi`                                  1   160.49 201.06
+## + genre_Western                                   1   160.53 201.09
+## + Denver_Film_Critics_Society_won                 1   160.66 201.23
+## + metascore                                       1   160.72 201.28
+## + Online_Film_Critics_Society_won                 1   160.79 201.36
+## + London_Critics_Circle_Film_nominated            1   160.87 201.44
+## + genre_Musical                                   1   160.89 201.46
+## + genre_Animation                                 1   161.01 201.58
+## + rate                                            1   161.15 201.72
+## + genre_Sport                                     1   161.17 201.74
+## + genre_War                                       1   161.26 201.83
+## + votes                                           1   161.28 201.85
+## + genre_Romance                                   1   161.31 201.88
+## + Denver_Film_Critics_Society_nominated           1   161.32 201.89
+## + BAFTA_nominated                                 1   161.35 201.92
+## + critic_reviews                                  1   161.37 201.94
+## + Costume_Designers_Guild_nominated               1   161.41 201.98
+## + awards_nominations                              1   161.43 202.00
+## + genre_Mystery                                   1   161.43 202.00
+## + Producers_Guild_won                             1   161.47 202.04
+## + Hollywood_Film_won                              1   161.47 202.04
+## + Hollywood_Film_nominated                        1   161.47 202.04
+## + London_Critics_Circle_Film_won                  1   161.48 202.05
+## + Critics_Choice_won                              1   161.49 202.06
+## + New_York_Film_Critics_Circle_nominated          1   161.52 202.09
+## + genre_Comedy                                    1   161.53 202.10
+## + popularity                                      1   161.54 202.11
+## + genre_History                                   1   161.54 202.11
+## + American_Cinema_Editors_won                     1   161.56 202.13
+## + genre_Fantasy                                   1   161.57 202.14
+## + genre_Crime                                     1   161.57 202.14
+## + Oscar_Best_AdaScreen_nominated                  1   161.57 202.14
+## + seasons                                         4   158.94 219.79
+## 
+## Step:  AIC=186.01
+## Oscars_won_some ~ awards_wins + Screen_Actors_Guild_won + Golden_Globes_won + 
+##     genre_Drama + Writers_Guild_won
+## 
+##                                                  Df Deviance    AIC
+## + Online_Film_Television_Association_nominated    1   129.55 176.88
+## + BAFTA_won                                       1   135.60 182.93
+## + Oscar_Best_Director_nominated                   1   138.65 185.99
+## &lt;none&gt;                                                145.44 186.01
+## + Oscar_Best_Supporting_Actor_nominated           1   140.90 188.23
+## + Online_Film_Television_Association_won          1   141.24 188.57
+## + Oscar_Best_OriScreen_nominated                  1   141.33 188.66
+## + Art_Directors_Guild_nominated                   1   141.61 188.94
+## + genre_Biography                                 1   142.09 189.42
+## + New_York_Film_Critics_Circle_won                1   142.13 189.46
+## + People_Choice_won                               1   142.21 189.54
+## + Boston_Society_of_Film_Critics_won              1   142.40 189.73
+## + Oscar_Best_Actor_nominated                      1   142.46 189.79
+## + Screen_Actors_Guild_nominated                   1   142.46 189.79
+## + People_Choice_nominated                         1   142.96 190.29
+## + Oscar_Best_Supporting_Actress_nominated         1   143.16 190.49
+## + `genre_Sci-Fi`                                  1   143.24 190.57
+## + user_reviews                                    1   143.26 190.59
+## + Los_Angeles_Film_Critics_Association_nominated  1   143.31 190.65
+## + Austin_Film_Critics_Association_won             1   143.35 190.68
+## + genre_Thriller                                  1   143.47 190.80
+## + certificate                                     1   143.58 190.91
+## + Online_Film_Critics_Society_nominated           1   143.60 190.93
+## + Costume_Designers_Guild_won                     1   143.63 190.97
+## + awards_nominations                              1   143.81 191.14
+## + sc.gross                                        1   143.90 191.23
+## + Costume_Designers_Guild_nominated               1   144.06 191.39
+## + genre_Western                                   1   144.11 191.44
+## + duration                                        1   144.16 191.49
+## + Austin_Film_Critics_Association_nominated       1   144.20 191.53
+## + genre_Horror                                    1   144.26 191.59
+## + New_York_Film_Critics_Circle_nominated          1   144.30 191.63
+## + genre_Action                                    1   144.36 191.69
+## + genre_Family                                    1   144.65 191.98
+## + Art_Directors_Guild_won                         1   144.68 192.01
+## + Oscar_nominated                                 1   144.74 192.07
+## + Oscar_Best_Picture_nominated                    1   144.77 192.10
+## + genre_War                                       1   144.78 192.11
+## + London_Critics_Circle_Film_won                  1   144.78 192.12
+## + Denver_Film_Critics_Society_nominated           1   144.81 192.14
+## + Oscar_Best_Actress_nominated                    1   144.82 192.16
+## + Directors_Guild_won                             1   144.83 192.16
+## + Los_Angeles_Film_Critics_Association_won        1   144.88 192.22
+## + genre_Fantasy                                   1   144.97 192.30
+## + Denver_Film_Critics_Society_won                 1   145.03 192.36
+## + rate                                            1   145.04 192.37
+## + genre_History                                   1   145.06 192.39
+## + genre_Animation                                 1   145.11 192.44
+## + genre_Sport                                     1   145.11 192.44
+## + Directors_Guild_nominated                       1   145.13 192.46
+## + genre_Musical                                   1   145.14 192.47
+## + metascore                                       1   145.16 192.49
+## + genre_Adventure                                 1   145.17 192.50
+## + London_Critics_Circle_Film_nominated            1   145.19 192.52
+## + Producers_Guild_nominated                       1   145.20 192.53
+## + BAFTA_nominated                                 1   145.22 192.55
+## + American_Cinema_Editors_nominated               1   145.23 192.56
+## + American_Cinema_Editors_won                     1   145.27 192.60
+## + genre_Romance                                   1   145.31 192.64
+## + Boston_Society_of_Film_Critics_nominated        1   145.31 192.64
+## + votes                                           1   145.31 192.64
+## + Producers_Guild_won                             1   145.36 192.69
+## + Oscar_Best_AdaScreen_nominated                  1   145.38 192.71
+## + Writers_Guild_nominated                         1   145.38 192.71
+## + Critics_Choice_nominated                        1   145.39 192.72
+## + Online_Film_Critics_Society_won                 1   145.40 192.73
+## + Golden_Globes_nominated                         1   145.42 192.75
+## + genre_Mystery                                   1   145.43 192.76
+## + critic_reviews                                  1   145.43 192.76
+## + Critics_Choice_won                              1   145.43 192.76
+## + genre_Comedy                                    1   145.44 192.77
+## + genre_Crime                                     1   145.44 192.77
+## + Hollywood_Film_nominated                        1   145.44 192.77
+## + Hollywood_Film_won                              1   145.44 192.77
+## + popularity                                      1   145.44 192.77
+## + seasons                                         4   141.73 209.34
+## 
+## Step:  AIC=176.88
+## Oscars_won_some ~ awards_wins + Screen_Actors_Guild_won + Golden_Globes_won + 
+##     genre_Drama + Writers_Guild_won + Online_Film_Television_Association_nominated
+## 
+##                                                  Df Deviance    AIC
+## + BAFTA_won                                       1   118.17 172.27
+## + Oscar_nominated                                 1   120.89 174.99
+## + New_York_Film_Critics_Circle_won                1   122.10 176.19
+## + Oscar_Best_Director_nominated                   1   122.27 176.36
+## &lt;none&gt;                                                129.55 176.88
+## + Oscar_Best_Supporting_Actor_nominated           1   123.49 177.59
+## + BAFTA_nominated                                 1   123.94 178.03
+## + Screen_Actors_Guild_nominated                   1   124.03 178.12
+## + Directors_Guild_nominated                       1   124.79 178.88
+## + Los_Angeles_Film_Critics_Association_nominated  1   125.56 179.65
+## + American_Cinema_Editors_nominated               1   126.22 180.31
+## + New_York_Film_Critics_Circle_nominated          1   126.30 180.40
+## + Golden_Globes_nominated                         1   126.33 180.43
+## + Oscar_Best_Picture_nominated                    1   126.47 180.56
+## + Los_Angeles_Film_Critics_Association_won        1   126.84 180.93
+## + Oscar_Best_Supporting_Actress_nominated         1   126.94 181.03
+## + genre_Thriller                                  1   126.99 181.09
+## + `genre_Sci-Fi`                                  1   127.46 181.55
+## + Oscar_Best_OriScreen_nominated                  1   127.47 181.56
+## + awards_nominations                              1   127.50 181.59
+## + Producers_Guild_nominated                       1   127.60 181.70
+## + genre_Action                                    1   127.65 181.74
+## + genre_Biography                                 1   127.81 181.91
+## + Critics_Choice_nominated                        1   127.83 181.92
+## + Austin_Film_Critics_Association_won             1   127.89 181.99
+## + Costume_Designers_Guild_won                     1   127.91 182.00
+## + genre_Fantasy                                   1   127.94 182.03
+## + Denver_Film_Critics_Society_nominated           1   127.95 182.04
+## + Writers_Guild_nominated                         1   127.95 182.04
+## + Oscar_Best_Actress_nominated                    1   128.07 182.16
+## + Austin_Film_Critics_Association_nominated       1   128.13 182.23
+## + votes                                           1   128.16 182.25
+## + Oscar_Best_Actor_nominated                      1   128.19 182.28
+## + Boston_Society_of_Film_Critics_won              1   128.20 182.29
+## + People_Choice_won                               1   128.30 182.39
+## + duration                                        1   128.31 182.41
+## + genre_Sport                                     1   128.52 182.61
+## + genre_History                                   1   128.54 182.63
+## + genre_Romance                                   1   128.55 182.64
+## + Costume_Designers_Guild_nominated               1   128.71 182.81
+## + rate                                            1   128.72 182.81
+## + genre_Western                                   1   128.81 182.91
+## + People_Choice_nominated                         1   128.84 182.94
+## + genre_Horror                                    1   128.87 182.96
+## + Critics_Choice_won                              1   128.94 183.03
+## + London_Critics_Circle_Film_won                  1   128.94 183.04
+## + London_Critics_Circle_Film_nominated            1   128.96 183.06
+## + certificate                                     1   129.00 183.09
+## + Oscar_Best_AdaScreen_nominated                  1   129.04 183.13
+## + Directors_Guild_won                             1   129.06 183.16
+## + genre_Comedy                                    1   129.09 183.19
+## + Denver_Film_Critics_Society_won                 1   129.12 183.21
+## + genre_Family                                    1   129.12 183.21
+## + genre_War                                       1   129.16 183.25
+## + Online_Film_Critics_Society_won                 1   129.21 183.30
+## + popularity                                      1   129.23 183.32
+## + genre_Animation                                 1   129.24 183.34
+## + sc.gross                                        1   129.26 183.35
+## + Art_Directors_Guild_nominated                   1   129.28 183.37
+## + American_Cinema_Editors_won                     1   129.29 183.39
+## + Art_Directors_Guild_won                         1   129.35 183.45
+## + Hollywood_Film_won                              1   129.41 183.50
+## + Hollywood_Film_nominated                        1   129.41 183.50
+## + metascore                                       1   129.41 183.50
+## + Online_Film_Critics_Society_nominated           1   129.43 183.53
+## + user_reviews                                    1   129.50 183.59
+## + genre_Mystery                                   1   129.50 183.59
+## + Online_Film_Television_Association_won          1   129.50 183.60
+## + critic_reviews                                  1   129.51 183.61
+## + Producers_Guild_won                             1   129.52 183.62
+## + Boston_Society_of_Film_Critics_nominated        1   129.55 183.64
+## + genre_Musical                                   1   129.55 183.64
+## + genre_Crime                                     1   129.55 183.64
+## + genre_Adventure                                 1   129.55 183.64
+## + seasons                                         4   127.75 202.13
+## 
+## Step:  AIC=172.27
+## Oscars_won_some ~ awards_wins + Screen_Actors_Guild_won + Golden_Globes_won + 
+##     genre_Drama + Writers_Guild_won + Online_Film_Television_Association_nominated + 
+##     BAFTA_won</code></pre>
+<pre><code>## Warning: glm.fit: fitted probabilities numerically 0 or 1 occurred</code></pre>
+<pre><code>##                                                  Df Deviance    AIC
+## &lt;none&gt;                                                118.17 172.27
+## + Oscar_Best_Supporting_Actor_nominated           1   111.70 172.55
+## + Directors_Guild_nominated                       1   111.90 172.76
+## + Oscar_Best_Director_nominated                   1   111.92 172.77
+## + Austin_Film_Critics_Association_won             1   112.17 173.03
+## + Screen_Actors_Guild_nominated                   1   112.39 173.24
+## + Austin_Film_Critics_Association_nominated       1   113.14 173.99
+## + genre_Thriller                                  1   113.14 174.00
+## + American_Cinema_Editors_nominated               1   113.31 174.16
+## + Oscar_Best_Picture_nominated                    1   113.54 174.40
+## + genre_Action                                    1   113.62 174.47
+## + Writers_Guild_nominated                         1   114.17 175.02
+## + Boston_Society_of_Film_Critics_won              1   114.59 175.44
+## + Oscar_nominated                                 1   114.78 175.64
+## + `genre_Sci-Fi`                                  1   114.84 175.70
+## + Golden_Globes_nominated                         1   115.20 176.05
+## + Producers_Guild_nominated                       1   115.25 176.11
+## + Oscar_Best_Actor_nominated                      1   115.25 176.11
+## + Oscar_Best_Supporting_Actress_nominated         1   115.55 176.41
+## + People_Choice_nominated                         1   115.77 176.63
+## + New_York_Film_Critics_Circle_won                1   115.80 176.65
+## + Critics_Choice_nominated                        1   115.82 176.68
+## + People_Choice_won                               1   115.88 176.74
+## + duration                                        1   115.98 176.83
+## + Costume_Designers_Guild_nominated               1   116.21 177.06
+## + awards_nominations                              1   116.22 177.07
+## + Costume_Designers_Guild_won                     1   116.32 177.17
+## + certificate                                     1   116.77 177.62
+## + Directors_Guild_won                             1   116.87 177.73
+## + Oscar_Best_OriScreen_nominated                  1   116.94 177.79
+## + genre_Fantasy                                   1   116.96 177.81
+## + Los_Angeles_Film_Critics_Association_nominated  1   117.03 177.88
+## + sc.gross                                        1   117.05 177.90
+## + Denver_Film_Critics_Society_nominated           1   117.07 177.93
+## + Oscar_Best_AdaScreen_nominated                  1   117.11 177.96
+## + Art_Directors_Guild_nominated                   1   117.19 178.04
+## + Art_Directors_Guild_won                         1   117.38 178.24
+## + genre_Sport                                     1   117.40 178.25
+## + metascore                                       1   117.49 178.34
+## + Oscar_Best_Actress_nominated                    1   117.52 178.38
+## + Los_Angeles_Film_Critics_Association_won        1   117.53 178.38
+## + Critics_Choice_won                              1   117.55 178.40
+## + genre_Biography                                 1   117.56 178.42
+## + genre_Musical                                   1   117.58 178.44
+## + Boston_Society_of_Film_Critics_nominated        1   117.68 178.53
+## + Online_Film_Critics_Society_nominated           1   117.70 178.55
+## + votes                                           1   117.74 178.59
+## + genre_Horror                                    1   117.75 178.61
+## + popularity                                      1   117.76 178.62
+## + Hollywood_Film_won                              1   117.77 178.63
+## + Hollywood_Film_nominated                        1   117.77 178.63
+## + genre_History                                   1   117.78 178.63
+## + critic_reviews                                  1   117.81 178.67
+## + New_York_Film_Critics_Circle_nominated          1   117.82 178.67
+## + genre_Family                                    1   117.84 178.70
+## + Producers_Guild_won                             1   117.87 178.72
+## + genre_War                                       1   117.87 178.73
+## + genre_Adventure                                 1   117.92 178.77
+## + genre_Western                                   1   117.97 178.83
+## + BAFTA_nominated                                 1   117.99 178.84
+## + genre_Animation                                 1   117.99 178.85
+## + genre_Romance                                   1   118.02 178.88
+## + Online_Film_Critics_Society_won                 1   118.03 178.89
+## + rate                                            1   118.04 178.89
+## + genre_Mystery                                   1   118.05 178.91
+## + user_reviews                                    1   118.11 178.96
+## + London_Critics_Circle_Film_nominated            1   118.11 178.96
+## + genre_Crime                                     1   118.11 178.96
+## + American_Cinema_Editors_won                     1   118.11 178.97
+## + Denver_Film_Critics_Society_won                 1   118.13 178.98
+## + Online_Film_Television_Association_won          1   118.17 179.02
+## + genre_Comedy                                    1   118.17 179.03
+## + London_Critics_Circle_Film_won                  1   118.17 179.03
+## + seasons                                         4   114.13 195.27</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">glm.final.test &lt;-<span class="st"> </span><span class="kw">predict.glm</span>(glm.final,oscars_test,<span class="dt">type=</span><span class="st">'response'</span>)
+score &lt;-<span class="st"> </span><span class="kw">sum</span>(<span class="kw">ifelse</span>(glm.final.test <span class="op">&gt;</span><span class="st"> </span><span class="fl">0.999</span>,<span class="st">&quot;Yes&quot;</span>,<span class="st">&quot;No&quot;</span>)<span class="op">==</span>y_test)<span class="op">/</span><span class="kw">length</span>(y_test)
+score</code></pre></div>
+<pre><code>## [1] 0.9272031</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># ROC Curve</span>
+prob=<span class="kw">plogis</span>(<span class="kw">predict.glm</span>(glm.final, <span class="dt">type =</span> <span class="kw">c</span>(<span class="st">&quot;response&quot;</span>)))
+<span class="co">#head(prob)</span>
+h &lt;-<span class="st"> </span><span class="kw">roc</span>(Oscars_won_some<span class="op">~</span>prob, <span class="dt">data=</span>oscars_train)
+<span class="kw">plot</span>(h)</code></pre></div>
+<p><img src="data:image/png;base64,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" width="672" /></p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Area Under the Curve</span>
+<span class="kw">auc</span>(h)</code></pre></div>
+<pre><code>## Area under the curve: 0.9815</code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">confusionMatrix</span>(<span class="kw">factor</span>(<span class="kw">ifelse</span>(glm.final.test <span class="op">&gt;</span><span class="st"> </span><span class="fl">0.5</span>,<span class="st">&quot;Yes&quot;</span>,<span class="st">&quot;No&quot;</span>)),y_test)</code></pre></div>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction  No Yes
+##        No  236   4
+##        Yes   4  17
+##                                           
+##                Accuracy : 0.9693          
+##                  95% CI : (0.9405, 0.9867)
+##     No Information Rate : 0.9195          
+##     P-Value [Acc &gt; NIR] : 0.0007725       
+##                                           
+##                   Kappa : 0.7929          
+##  Mcnemar's Test P-Value : 1.0000000       
+##                                           
+##             Sensitivity : 0.9833          
+##             Specificity : 0.8095          
+##          Pos Pred Value : 0.9833          
+##          Neg Pred Value : 0.8095          
+##              Prevalence : 0.9195          
+##          Detection Rate : 0.9042          
+##    Detection Prevalence : 0.9195          
+##       Balanced Accuracy : 0.8964          
+##                                           
+##        'Positive' Class : No              
+## </code></pre>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">confusionMatrix</span>(<span class="kw">factor</span>(<span class="kw">ifelse</span>(glm.final<span class="op">$</span>fitted.values <span class="op">&gt;</span><span class="st"> </span><span class="fl">0.5</span>,<span class="st">&quot;Yes&quot;</span>,<span class="st">&quot;No&quot;</span>)), oscars_train<span class="op">$</span>Oscars_won_some)</code></pre></div>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction  No Yes
+##        No  790  17
+##        Yes   7  50
+##                                           
+##                Accuracy : 0.9722          
+##                  95% CI : (0.9589, 0.9821)
+##     No Information Rate : 0.9225          
+##     P-Value [Acc &gt; NIR] : 4.188e-10       
+##                                           
+##                   Kappa : 0.7916          
+##  Mcnemar's Test P-Value : 0.06619         
+##                                           
+##             Sensitivity : 0.9912          
+##             Specificity : 0.7463          
+##          Pos Pred Value : 0.9789          
+##          Neg Pred Value : 0.8772          
+##              Prevalence : 0.9225          
+##          Detection Rate : 0.9144          
+##    Detection Prevalence : 0.9340          
+##       Balanced Accuracy : 0.8687          
+##                                           
+##        'Positive' Class : No              
+## </code></pre>
 </div>
 <div id="approaches" class="section level3">
 <h3><span class="header-section-number">4.1.3</span> Approaches</h3>
