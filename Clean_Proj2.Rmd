@@ -2,12 +2,12 @@
 title: "Oscars... WHAT?"
 date: "12/06/2018"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     highlight: tango
     number_sections: yes
     theme: united
+    toc: yes
+  pdf_document:
     toc: yes
 authors: Pedro Uria, Sean Pili and Zachary Buckley
 ---
@@ -15,8 +15,6 @@ authors: Pedro Uria, Sean Pili and Zachary Buckley
 ```{r setup, include=FALSE}
 # !diagnostics off
 knitr::opts_chunk$set(echo = TRUE)
-
-
 ```
 
 # Stating the Question
@@ -697,6 +695,18 @@ cm$overall[5]
 Our Accuracy is still above the No Information Rate (AccuracyNull above), as with the previous model, but we did see a reduction of the overall prediction accuracy and true positive rates compared to the other step-wise model. 
 
 ```{r}
+# ROC Curve
+prob=plogis(predict.glm(model.glm.final2, type = c("response")))
+#head(prob)
+h <- roc(Oscars_won_some~prob, data=oscars_train)
+plot(h)
+# Area Under the Curve
+auc(h)
+```
+
+AUC is lower than our initial forward selection model. 
+
+```{r}
 vif(model.glm.final2)
 ```
 
@@ -800,6 +810,17 @@ confusionMatrix(y_test_pred, y_test)
 ```
 
 Random Forest improves our prediction accuracy over the stepwise logistic regression model. 
+
+How do we get a ROC Curve. 
+
+```{r}
+#head(prob)
+h <- roc(oscars_train$Oscars_won_some, best.ranFor.model$votes[, 2])
+plot(h)
+# Area Under the Curve
+auc(h)
+```
+
 
 # Conclusions 
 

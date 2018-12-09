@@ -1,6 +1,6 @@
 ---
-title: "Project-2-Nuisance-Parameters-Slides"
-author: "Sean Pili"
+title: "Predicting the Oscars"
+author: "Nuisance Parameters"
 date: "December 1, 2018"
 output: ioslides_presentation
 ---
@@ -9,27 +9,374 @@ output: ioslides_presentation
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-## R Markdown
+```{r install_functions, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+##Helper Functions here for cleanly handling imports
+#install_all - function for installing all packages in a list that aren't available
+#  inspired by https://stackoverflow.com/questions/4090169/elegant-way-to-check-for-missing-packages-and-install-them
+#  ex: install_all(c('readr', 'dplyr'))
+install_all <- function(list.of.packages) {
+  need_install <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+  if(length(need_install)) install.packages(need_install)
+}
 
-This is an R Markdown presentation. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document.
-
-## Slide with Bullets
-
-- Bullet 1
-- Bullet 2
-- Bullet 3
-
-## Slide with R Output
-
-```{r cars, echo = TRUE}
-summary(cars)
+# package_apply_all - function for calling install_all on list of packages, then applying a function to them
+#  inspired by https://stackoverflow.com/questions/8175912/load-multiple-packages-at-once
+#  ex: package_apply_all(c('readr', 'dplyr'), require)
+package_apply_all <- function(list.of.packages, func) {
+  install_all(list.of.packages)
+  invisible(lapply(list.of.packages, func, character.only = TRUE))
+}
 ```
 
-## Slide with Plot
+```{r imports, include=FALSE}
+package_apply_all(
+  c(
+    'readr', # for loading data from various formats
+    'ggplot2', # pretty graphs
+    'tidyr', # needed for the gather function
+    'caret', # needed for standardizing
+    'pROC', # needed for ROC curve
+    'dplyr', # because we all need a little magic
+    'import',
+    'rBayesianOptimization', # used in cross-validation of step-wise logistic
+    'car',
+    'randomForest'
+  ), library)
+install_all(c(
+  'tidyimpute',
+  'caret'
+))
+import::from(tidyimpute, "impute_mean")
+import::from(caret, "confusionMatrix")
+oscars <- read_csv("oscars.csv", col_types = cols())
+oscars = filter(oscars, year != 2017)
+# Pattern to get only the relevant columns
+pat.oscar_won <- "Oscar_.*_won$"
+pat.oscar_nom <- "Oscar_.*_nominated$"
 
-```{r pressure}
-plot(pressure)
+tmp.won <- rowSums(
+  oscars %>%
+    mutate_at(
+      vars(matches(pat.oscar_won)),
+      funs(ifelse(. == "No", 0, 1))
+    ) %>% select(matches(pat.oscar_won))
+  )
+
+# set win count variable in oscars df
+oscars <- oscars %>% 
+  mutate(Oscars_win_count = tmp.won)
+
+oscars <- oscars %>% mutate(
+  Oscars_won_some = factor(ifelse(Oscars_win_count > 0, "Yes", "No"))
+)
+
+oscars = oscars %>% filter(certificate != "Not Rated" | is.na(certificate)) %>% filter(certificate != "Unrated" | is.na(certificate))
+oscars = oscars %>% filter(is.na(certificate) == FALSE)
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "PG-13", 3))
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "G", 1))
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "R", 4))
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "PG", 2))
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "TV-MA", 5))
+oscars$certificate = as.numeric(oscars$certificate)
+genre_unique = unique(oscars$genre)
+# get the actual unique values
+soup = c()
+for(i in 1:length(genre_unique)){
+  soup = append(soup,unlist(strsplit(genre_unique[i],"\\|")))
+}
+new_cols = unique(soup)
+
+# create a dataframe where the column names are the unique genres
+gen = data.frame(matrix(nrow=nrow(oscars),ncol=length(new_cols)))
+colnames(gen) = new_cols
+
+for(i in 1:ncol(gen)){
+  # iterate over columns
+  for(j in 1:nrow(gen)){
+    # then rows
+    # if the string with the column name is in the string for the awards_won column in the original 
+    # dataset.... give that variable a 1 in the new dataset 
+    if((grepl(colnames(gen[i]),oscars$genre[j])==TRUE)){ 
+      gen[j,i] = 1
+      }
+    else{
+      gen[j,i] = 0
+    }
+  }
+}
+
+# we add the prefix "genre", so that the varaibles are easier to identify. 
+colnames(gen) = paste("genre",colnames(gen),sep="_")
+
+# get rid of the mispelling of history... somehow some moves were classified as histor and history
+# assume music and musical are the same genre. 
+gen$genre_History = gen$genre_History + gen$genre_Histor
+gen$genre_Musical = gen$genre_Musical + gen$genre_Music
+
+
+# check for duplicates
+max(gen$genre_History)
+max(gen$genre_Musical)
+# we have them in both, so remove them. 
+
+for(i in 1:length(gen$genre_History)){
+  if(gen$genre_History[i]>1){
+    gen$genre_History[i] =1
+  }
+}
+
+for(i in 1:length(gen$genre_Musical)){
+  if(gen$genre_Musical[i]>1){
+    gen$genre_Musical[i] =1
+  }
+}
+
+# select the columns that are duplicated
+DropCols = c("genre_Histor","genre_Music")
+# remove them from the datframe. 
+
+gen = gen[,!colnames(gen)%in%DropCols]
+
+oscars = cbind(oscars,gen)
+
+# Changing 0 to "No" and 1 to "Yes" and converting to factor
+for(i in names(gen)){
+  oscars[c(i)][[1]] = ifelse(oscars[c(i)][[1]] == 1, "Yes", "No")
+  oscars[c(i)][[1]] = factor(oscars[c(i)][[1]])
+}
+oscars <- oscars %>% select(-genre_Documentary)
+cpi <- read_csv('CPI_20181201.csv', col_types = cols())
+cpif <- function(year) {
+  idx <- year %% 2000 + 1
+  cpi$Annual[idx]
+}
+
+oscars = oscars %>% mutate(
+  # Adjust gross field by Consumer Price Index.
+  # cpif provides annual average CPI for specified year
+  # data provided by the Burea of Labor Statistics website
+  # (implementation included in full Rmd document)
+  sc.gross = gross * cpif(2000)/cpif(year) # "In 2000 dollars"
+) %>% 
+  # TODO: Should this be here? thinking to move it down
+  # mutate oscars won and oscars nominated cols/variables to factor types
+  mutate_at(vars(matches(pat.oscar_won)), funs(factor)) %>%
+  mutate_at(vars(matches(pat.oscar_nom)), funs(factor))
+
+season <- function(month) {
+  retVal <- "Fall"
+  
+  if (month <= 2) {
+    "Winter" # Winter [December, February]
+  } else if (month <= 5) {
+    retVal <- "Spring"  # Spring [March, May]
+  } else if (month <= 8) {
+    retVal <- "Summer" # Summer [June, August]
+  } else if (month <= 11) {
+    retVal <- "Fall" # Fall   [September, November]
+  } else {
+    retVal <- "Winter"
+  }
+  
+  return (retVal)
+}
+
+oscars <- oscars %>%
+  rowwise() %>%
+  mutate(seasons = season(release_date.month))
+oscars$seasons = factor(oscars$seasons)
+
+drop.cols <- c(
+  'movie',
+  'movie_id',
+  'synopsis',
+  'gross', # dropping gross b/c gross.sc contains scaled values
+  'Oscars_win_count',
+  'release_date',
+  'Oscar_nominated_categories',
+  'genre',
+  'release_date.year',
+  'release_date.day-of-month',
+  'release_date.day-of-week',
+  'release_date.month')
+oscars <- oscars %>% 
+  select(-one_of(drop.cols)) %>%
+  select(-matches("categories$")) %>% 
+  select(-matches("Oscar_.*_won$"))
+
+oscars <- oscars %>% impute_mean(
+  metascore, 
+  user_reviews, 
+  critic_reviews, 
+  popularity, 
+  sc.gross
+)
+
+oscars_train <- subset(oscars, year %in% c(2000:2012)) 
+oscars_test <- subset(oscars, year %in% c(2013:2016))
+
+# Drops year
+oscars <- select(oscars, -year)
+oscars_train <- select(oscars_train, -year)
+oscars_test <- select(oscars_test, -year)
+
+# Gets the target
+y_train = oscars_train$Oscars_won_some
+y_test = oscars_test$Oscars_won_some
+# Drops the target column
+# TODO: Not sure it's necessary to drop target col?
+X_train <- select(oscars_train, -Oscars_won_some)
+X_test <- select(oscars_test, -Oscars_won_some)
+
+scaleParam <- preProcess(oscars_train, method=c("center", "scale"))
+oscars_train <- predict(scaleParam, oscars_train)
+oscars_test <- predict(scaleParam, oscars_test)
+
+scaleParam <- preProcess(X_train, method=c("center", "scale"))
+X_train <- predict(scaleParam, X_train)
+X_test <- predict(scaleParam, X_test)
+```
+
+## Introduction
+
+### Question
+
+Can we predict if a movie will win at least one Oscar?
+
+### Data
+
+- Started with data from BigML
+- 1183 Observations
+- Large number of features (119)
+    - Awards previously won
+    - Awards previously nominated for
+    - Other stats from imdb
+
+## Model Building/Results
+
+- 81 Variables after data pre-processing 
+  
+| Model Type    | Var Selection           |  Num Vars | Accuracy | AUC    |
+|---------------|-------------------------|-----------|----------|--------|
+| Logistic Reg  | None                    | 81        | N/A      | N/A    |
+| Logistic Reg  | Manual                  | 12        | 94.25%   | 0.9548 |
+| Logistic Reg  | Forward Selection (BIC) | 4         | 94.63%   | 0.9582 |
+| Random Forest | 35 per split            | 81        | 98.08%   | 0.9743 |
+    
+## Manual Feature Selection
+
+```{r echo=FALSE}
+model.glm.subset <-  glm(Oscars_won_some~certificate 
+                         + duration
+                         + rate
+                         + metascore
+                         + votes
+                         + user_reviews
+                         + critic_reviews
+                         + popularity
+                         + awards_wins
+                         + awards_nominations
+                         + sc.gross
+                         + seasons,
+                         family = binomial(link = "logit"), 
+                         data = oscars_train)
+# Tests the model
+model.glm.subset.prob=plogis(predict.glm(model.glm.subset, type = c("response")))
+#head(prob)
+model.glm.subset.h <- roc(Oscars_won_some~model.glm.subset.prob, data=oscars_train)
+
+# Area Under the Curve
+#auc(model.glm.subset.h)
+model.glm.subset.test <- predict.glm(model.glm.subset,oscars_test,type='response')
+cm <- confusionMatrix(factor(ifelse(model.glm.subset.test > 0.5,"Yes","No")),y_test)
+
+cm$table
+plot(model.glm.subset.h)
+```
+
+## Stepwise Feature Selection
+
+```{r include=FALSE}
+oscars_train2 <- oscars_train %>% select(-matches(".*nominated$"), -matches(".*won$"))
+oscars_test2 <- oscars_test %>% select(-matches(".*nominated$"), -matches(".*won$"))
+
+# creating a null model
+model.glm.null2 <-  glm(Oscars_won_some~1,
+                family = binomial(link = "logit"), data = oscars_train2)
+# create a full model
+model.glm.all2 <- glm(Oscars_won_some~.,
+                family = binomial(link = "logit"), data = oscars_train2)
+# use step to apply stepwise forward selection with BIC as a evaluation metric
+model.glm.final2 <- step(model.glm.null2, scope = formula(model.glm.all2), direction = "forward", k = log(nrow(oscars_train)), trace = FALSE)
+# NOTE: The output says AIC, but we really are calculating BIC, because we are using the log of the number of observations in our dataset as our penalty term (k) instead of just the number of predictors. This seemed appropriate due to the large number of features relative the number of observations available to us, and BIC penalizes extra features more than AIC does.
+model.glm.final2.test <- predict.glm(model.glm.final2,oscars_test2,type='response')
+cm <- confusionMatrix(factor(ifelse(model.glm.final2.test > 0.5,"Yes","No")),y_test)
+# ROC Curve
+prob=plogis(predict.glm(model.glm.final2, type = c("response")))
+#head(prob)
+h <- roc(Oscars_won_some~prob, data=oscars_train)
+```
+```{r echo=FALSE}
+cm$table
+plot(h)
+```
+
+## Random Forest
+
+```{r echo=FALSE}
+# apparently randomForest function can't use `-` in variable names.
+oscars_train.renamed <- oscars_train %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+oscars_test.renamed <- oscars_test %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+
+# Trains the model (low, med, high mtry numbers)
+ranFor.train <- function(mtry) {
+  set.seed(42)
+  return(randomForest(formula=Oscars_won_some~.,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=mtry, 
+               data=oscars_train.renamed))
+}
+
+# Tests the model
+ranFor.hitrate <- function (model) {
+  y_test_pred <- predict(model,oscars_test.renamed, type='response')
+  return(sum(y_test_pred==y_test)/length(y_test))
+}
+
+# These take a while to run...
+#scores = c()
+#for (i in seq(1,80)) {
+#  scores <- c(scores, ranFor.hitrate(ranFor.train(i)))
+#}
+#best.mtry <- which(max(scores)==scores)[1]
+# after running above, 35, 49, 67, 73 give max performance
+# to avoid really long document rebuild times... we'll just use 35
+best.mtry <- 35
+
+best.ranFor.model <- ranFor.train(best.mtry)
+
+# Computes the importance of each variable
+# by accuracy
+VI_F1 = importance(best.ranFor.model, type=1)
+# by impurity
+VI_F2 = importance(best.ranFor.model, type=2)
+
+# https://freakonometrics.hypotheses.org/19835
+#barplot(t(VI_F2/sum(VI_F2)), cex.names=0.5)
+
+#ranFor.hitrate(best.ranFor.model)
+
+# confusion matrix
+y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
+confusionMatrix(y_test_pred, y_test)$table
+#head(prob)
+h <- roc(oscars_train$Oscars_won_some, best.ranFor.model$votes[, 2])
+plot(h)
 ```
 
