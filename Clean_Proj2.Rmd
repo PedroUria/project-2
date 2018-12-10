@@ -754,7 +754,7 @@ sd(scores)
 
 ## Random Forest
 
-Now we'll attempt to train a random forest model based on all the variables, and tune the hyperparameter mtry (the number of features used at each split).
+Now we'll attempt to train a random forest model based on all the variables, and tune the hyperparameter `mtry` (the number of features used at each split).
 
 ```{r}
 # apparently randomForest function can't use `-` in variable names.
@@ -765,6 +765,14 @@ oscars_test.renamed <- oscars_test %>%
   mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
   select(-`genre_Sci-Fi`)
 
+# We need to split the train data into training and testing so that
+# we don't use our test data for hypertuning mtry
+train.index <- createDataPartition(oscars_train$Oscars_won_some, p = .7, list = FALSE)
+train <- oscars_train.renamed[ train.index,]
+test  <- oscars_test.renamed[-train.index,]
+y_testt <- test$Oscars_won_some
+
+
 # Trains the model (low, med, high mtry numbers)
 ranFor.train <- function(mtry) {
   set.seed(42)
@@ -772,26 +780,40 @@ ranFor.train <- function(mtry) {
                importance=TRUE, 
                proximity=TRUE,
                mtry=mtry, 
-               data=oscars_train.renamed))
+               data=train))
 }
 
 # Tests the model
 ranFor.hitrate <- function (model) {
-  y_test_pred <- predict(model,oscars_test.renamed, type='response')
-  return(sum(y_test_pred==y_test)/length(y_test))
+  y_test_pred <- predict(model,test, type='response')
+  return(sum(y_test_pred==y_testt)/length(y_testt))
 }
 
-# These take a while to run...
 #scores = c()
 #for (i in seq(1,80)) {
 #  scores <- c(scores, ranFor.hitrate(ranFor.train(i)))
 #}
-#best.mtry <- which(max(scores)==scores)[1]
-# after running above, 35, 49, 67, 73 give max performance
-# to avoid really long document rebuild times... we'll just use 35
-best.mtry <- 35
+#which(max(scores)==scores)
 
-best.ranFor.model <- ranFor.train(best.mtry)
+# The code from above is commented out because it takes a while to run
+# Its output is:
+#[1] 19 22 23 27 28 31 33 35 36 39 40 41 42 44 45 47 49 50 51 52 53 55 56 57 58 59 60 61 62 63
+#[31] 64 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80
+
+# Well... it seems a lot of different mtry give the same best score
+# Let's try it with 35
+
+best.ranFor.model = randomForest(formula=Oscars_won_some~.,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=35, 
+               data=oscars_train.renamed)
+y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
+sum(y_test_pred==y_test)/length(y_test)
+
+# confusion matrix
+y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
+confusionMatrix(y_test_pred, y_test)
 
 # Computes the importance of each variable
 # by accuracy
@@ -801,12 +823,6 @@ VI_F2 = importance(best.ranFor.model, type=2)
 
 # https://freakonometrics.hypotheses.org/19835
 barplot(t(VI_F2/sum(VI_F2)), cex.names=0.5)
-
-ranFor.hitrate(best.ranFor.model)
-
-# confusion matrix
-y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
-confusionMatrix(y_test_pred, y_test)
 ```
 
 Random Forest improves our prediction accuracy over the stepwise logistic regression model. 
