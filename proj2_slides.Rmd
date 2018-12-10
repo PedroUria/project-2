@@ -9,7 +9,7 @@ output: ioslides_presentation
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r install_functions, include=FALSE}
+```{r include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ##Helper Functions here for cleanly handling imports
 #install_all - function for installing all packages in a list that aren't available
@@ -27,9 +27,7 @@ package_apply_all <- function(list.of.packages, func) {
   install_all(list.of.packages)
   invisible(lapply(list.of.packages, func, character.only = TRUE))
 }
-```
 
-```{r imports, include=FALSE}
 package_apply_all(
   c(
     'readr', # for loading data from various formats
@@ -49,9 +47,11 @@ install_all(c(
 ))
 import::from(tidyimpute, "impute_mean")
 import::from(caret, "confusionMatrix")
+
 oscars <- read_csv("oscars.csv", col_types = cols())
+
 oscars = filter(oscars, year != 2017)
-# Pattern to get only the relevant columns
+
 pat.oscar_won <- "Oscar_.*_won$"
 pat.oscar_nom <- "Oscar_.*_nominated$"
 
@@ -67,6 +67,15 @@ tmp.won <- rowSums(
 oscars <- oscars %>% 
   mutate(Oscars_win_count = tmp.won)
 
+# Validation
+oscars_won_best_picture <- filter(oscars, Oscar_Best_Picture_won == 'Yes')
+# This movie won 3 oscars, let's see if it checks out
+oscars_won_best_picture$Oscars_win_count[1] == 3
+# This movie won 2 oscars, let's see if it checks out
+oscars_won_best_picture$Oscars_win_count[2] == 2
+# Yeap
+
+# Encodes as factor
 oscars <- oscars %>% mutate(
   Oscars_won_some = factor(ifelse(Oscars_win_count > 0, "Yes", "No"))
 )
@@ -79,6 +88,8 @@ oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "R"
 oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "PG", 2))
 oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "TV-MA", 5))
 oscars$certificate = as.numeric(oscars$certificate)
+
+# get all of the values parsed by |'s
 genre_unique = unique(oscars$genre)
 # get the actual unique values
 soup = c()
@@ -145,8 +156,11 @@ for(i in names(gen)){
   oscars[c(i)][[1]] = ifelse(oscars[c(i)][[1]] == 1, "Yes", "No")
   oscars[c(i)][[1]] = factor(oscars[c(i)][[1]])
 }
+
 oscars <- oscars %>% select(-genre_Documentary)
+
 cpi <- read_csv('CPI_20181201.csv', col_types = cols())
+
 cpif <- function(year) {
   idx <- year %% 2000 + 1
   cpi$Annual[idx]
@@ -213,6 +227,7 @@ oscars <- oscars %>% impute_mean(
   sc.gross
 )
 
+# Splits by years
 oscars_train <- subset(oscars, year %in% c(2000:2012)) 
 oscars_test <- subset(oscars, year %in% c(2013:2016))
 
@@ -238,6 +253,7 @@ X_train <- predict(scaleParam, X_train)
 X_test <- predict(scaleParam, X_test)
 ```
 
+
 ## Introduction
 
 ### Question
@@ -252,40 +268,51 @@ Can we predict if a movie will win at least one Oscar?
 - Large number of features (119)
     - Awards previously won
     - Awards previously nominated for
-    - Other stats from imdb
+    - Other data from imdb
     
 ## LogReg: Manual (12 Vars)
 
 ```{r echo=FALSE}
-model.glm.subset <-  glm(Oscars_won_some~certificate 
-                         + duration
-                         + rate
-                         + metascore
-                         + votes
-                         + user_reviews
-                         + critic_reviews
-                         + popularity
-                         + awards_wins
-                         + awards_nominations
-                         + sc.gross
-                         + seasons,
-                         family = binomial(link = "logit"), 
-                         data = oscars_train)
-# Tests the model
+model.glm.subset <-  glm(Oscars_won_some~certificate + duration+rate+metascore+votes+user_reviews+critic_reviews+popularity+awards_wins+awards_nominations+sc.gross+seasons,
+                family = binomial(link = "logit"), data = oscars_train)
+
+model.glm.subset.test <- predict.glm(model.glm.subset,oscars_test,type='response')
+
+cm <- confusionMatrix(factor(ifelse(model.glm.subset.test > 0.5,"Yes","No")), y_test)
+cm$table
+
 model.glm.subset.prob=plogis(predict.glm(model.glm.subset, type = c("response")))
 #head(prob)
 model.glm.subset.h <- roc(Oscars_won_some~model.glm.subset.prob, data=oscars_train)
-
-# Area Under the Curve
-#auc(model.glm.subset.h)
-model.glm.subset.test <- predict.glm(model.glm.subset,oscars_test,type='response')
-cm <- confusionMatrix(factor(ifelse(model.glm.subset.test > 0.5,"Yes","No")),y_test)
-
-cm$table
-plot(model.glm.subset.h)
+plot(model.glm.subset.h, main = "Acc: 0.9425, AUC: 0.9548")
 ```
 
 ## LogReg: Forward BIC (7 Vars)
+
+```{r include=FALSE}
+model.glm.null <-  glm(Oscars_won_some~1,
+                family = binomial(link = "logit"), data = oscars_train)
+# create a full model
+model.glm.all <- glm(Oscars_won_some~.,
+                family = binomial(link = "logit"), data = oscars_train)
+
+model.glm.final <- step(model.glm.null, scope = formula(model.glm.all), direction = "forward", k = log(nrow(oscars_train)), trace = FALSE)
+```
+
+```{r echo=FALSE}
+model.glm.final.test <- predict.glm(model.glm.final,oscars_test,type='response')
+
+cm <- confusionMatrix(factor(ifelse(model.glm.final.test > 0.5,"Yes","No")),y_test)
+
+cm$table
+
+prob=plogis(predict.glm(model.glm.final, type = c("response")))
+#head(prob)
+h <- roc(Oscars_won_some~prob, data=oscars_train)
+plot(h, main= "ACC: 0.9694, AUC: 0.9815")
+```
+
+## LogReg: Manual & Forward BIC (4 Vars)
 
 ```{r include=FALSE}
 oscars_train2 <- oscars_train %>% select(-matches(".*nominated$"), -matches(".*won$"))
@@ -297,33 +324,35 @@ model.glm.null2 <-  glm(Oscars_won_some~1,
 # create a full model
 model.glm.all2 <- glm(Oscars_won_some~.,
                 family = binomial(link = "logit"), data = oscars_train2)
-# use step to apply stepwise forward selection with BIC as a evaluation metric
+
 model.glm.final2 <- step(model.glm.null2, scope = formula(model.glm.all2), direction = "forward", k = log(nrow(oscars_train)), trace = FALSE)
-# NOTE: The output says AIC, but we really are calculating BIC, because we are using the log of the number of observations in our dataset as our penalty term (k) instead of just the number of predictors. This seemed appropriate due to the large number of features relative the number of observations available to us, and BIC penalizes extra features more than AIC does.
+```
+
+```{r echo=FALSE}
 model.glm.final2.test <- predict.glm(model.glm.final2,oscars_test2,type='response')
 cm <- confusionMatrix(factor(ifelse(model.glm.final2.test > 0.5,"Yes","No")),y_test)
-# ROC Curve
+cm$table
+
 prob=plogis(predict.glm(model.glm.final2, type = c("response")))
 #head(prob)
 h <- roc(Oscars_won_some~prob, data=oscars_train)
+plot(h, main = "ACC: 0.9464, AUC: 0.9582")
 ```
-```{r echo=FALSE}
-cm$table
-plot(h)
-```
-
-## LogReg: Manual & Forward BIC (4 Vars)
 
 ## Random Forest: 35 Per Node
 
 ```{r echo=FALSE}
-# apparently randomForest function can't use `-` in variable names.
 oscars_train.renamed <- oscars_train %>% 
   mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
   select(-`genre_Sci-Fi`)
 oscars_test.renamed <- oscars_test %>% 
   mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
   select(-`genre_Sci-Fi`)
+oscars.renamed <- oscars %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+
+set.seed(42) 
 
 # Trains the model (low, med, high mtry numbers)
 ranFor.train <- function(mtry) {
@@ -332,44 +361,30 @@ ranFor.train <- function(mtry) {
                importance=TRUE, 
                proximity=TRUE,
                mtry=mtry, 
-               data=oscars_train.renamed))
+               data=train))
 }
 
 # Tests the model
 ranFor.hitrate <- function (model) {
-  y_test_pred <- predict(model,oscars_test.renamed, type='response')
-  return(sum(y_test_pred==y_test)/length(y_test))
+  y_test_pred <- predict(model,test, type='response')
+  return(sum(y_test_pred==y_testt)/length(y_testt))
 }
 
-# These take a while to run...
-#scores = c()
-#for (i in seq(1,80)) {
-#  scores <- c(scores, ranFor.hitrate(ranFor.train(i)))
-#}
-#best.mtry <- which(max(scores)==scores)[1]
-# after running above, 35, 49, 67, 73 give max performance
-# to avoid really long document rebuild times... we'll just use 35
-best.mtry <- 35
-
-best.ranFor.model <- ranFor.train(best.mtry)
-
-# Computes the importance of each variable
-# by accuracy
-VI_F1 = importance(best.ranFor.model, type=1)
-# by impurity
-VI_F2 = importance(best.ranFor.model, type=2)
-
-# https://freakonometrics.hypotheses.org/19835
-#barplot(t(VI_F2/sum(VI_F2)), cex.names=0.5)
-
-#ranFor.hitrate(best.ranFor.model)
-
-# confusion matrix
+best.ranFor.model = randomForest(formula=Oscars_won_some~.,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=35, 
+               data=oscars_train.renamed)
 y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
-confusionMatrix(y_test_pred, y_test)$table
-#head(prob)
-h <- roc(oscars_train$Oscars_won_some, best.ranFor.model$votes[, 2])
-plot(h)
+
+
+y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
+cm <- confusionMatrix(y_test_pred, y_test)
+cm$table
+
+h <- roc(oscars_train.renamed$Oscars_won_some, best.ranFor.model$votes[, 2])
+plot(h, main="ACC: 0.9808, AUC: 0.9743")
+
 ```
 
 ## Model Building/Results
