@@ -716,7 +716,8 @@ model.glm.final.fTrain <- function(train_data) {
     glm(Oscars_won_some~awards_wins + 
           Screen_Actors_Guild_won +
           Golden_Globes_won +
-          genre_Drama+Writers_Guild_won +
+          genre_Drama +
+          Writers_Guild_won +
           Online_Film_Television_Association_nominated +
           BAFTA_won,
         family = binomial(link = "logit"),

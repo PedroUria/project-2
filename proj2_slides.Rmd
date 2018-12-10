@@ -248,23 +248,13 @@ Can we predict if a movie will win at least one Oscar?
 
 - Started with data from BigML
 - 1183 Observations
+    - Movies released between 2000 and 2017
 - Large number of features (119)
     - Awards previously won
     - Awards previously nominated for
     - Other stats from imdb
-
-## Model Building/Results
-
-- 81 Variables after data pre-processing 
-  
-| Model Type    | Var Selection           |  Num Vars | CV Accuracy | CV Stdev | AUC |
-|---------------|-------------------------|-----------|-------------|----------|----|
-| Logistic Reg  | None                    | 81        | N/A         | N/A      | N/A|
-| Logistic Reg  | Manual                  | 12        | 94.58%      | 0.01303  | 0.9548 |
-| Logistic Reg  | Forward Selection (BIC) | 4         | 95.28%      | 0.00936  | 0.9582 |
-| Random Forest | 35 per split            | 81        | 96.44%      | 0.01361  | 0.9743 |
     
-## Manual Feature Selection
+## LogReg: Manual (12 Vars)
 
 ```{r echo=FALSE}
 model.glm.subset <-  glm(Oscars_won_some~certificate 
@@ -295,7 +285,7 @@ cm$table
 plot(model.glm.subset.h)
 ```
 
-## Stepwise Feature Selection
+## LogReg: Forward BIC (7 Vars)
 
 ```{r include=FALSE}
 oscars_train2 <- oscars_train %>% select(-matches(".*nominated$"), -matches(".*won$"))
@@ -322,7 +312,9 @@ cm$table
 plot(h)
 ```
 
-## Random Forest
+## LogReg: Manual & Forward BIC (4 Vars)
+
+## Random Forest: 35 Per Node
 
 ```{r echo=FALSE}
 # apparently randomForest function can't use `-` in variable names.
@@ -380,3 +372,14 @@ h <- roc(oscars_train$Oscars_won_some, best.ranFor.model$votes[, 2])
 plot(h)
 ```
 
+## Model Building/Results
+
+- 81 Variables after data pre-processing 
+  
+| Model Type    | Var Selection           |  Num Vars | CV Accuracy | CV Stdev | AUC    |
+|---------------|-------------------------|-----------|-------------|----------|--------|
+| Logistic Reg  | None                    | 81        | N/A         | N/A      | N/A    |
+| Logistic Reg  | Manual                  | 12        | 0.9458      | 0.0130   | 0.9548 |
+| Logistic Reg  | Manual & Forward (BIC)  | 4         | 0.9529      | 0.0094   | 0.9582 |
+| Random Forest | 35 random per split     | 81        | 0.9627      | 0.0166   | 0.9758 |
+| Logistic Reg  | Forward (BIC)           | 7         | 0.9689      | 0.0040   | 0.9815 |
