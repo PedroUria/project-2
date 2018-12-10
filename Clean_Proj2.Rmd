@@ -563,10 +563,9 @@ model.glm.subset <-  glm(Oscars_won_some~certificate + duration+rate+metascore+v
 
 The subsetted model shows that the model estimated all the coefficients, and has more reasonable z-value and p-value statistics. The most significant features by far, appear to be `certificate`, `user_reviews`, and `award_wins`.
 
-Let's how well our model predicts the oscar winners in our training set. 
+Let's how well our model predicts the oscar winners in our training set, using cross_validation.
 
 ```{r}
-
 # Tests the model
 model.glm.subset.test <- predict.glm(model.glm.subset,oscars_test,type='response')
 
@@ -575,48 +574,87 @@ cm <- confusionMatrix(factor(ifelse(model.glm.subset.test > 0.5,"Yes","No")), y_
 cm$table
 cm$overall[1]
 cm$overall[5]
-
-# I WAS GOING TO MAKE A FUNCTION OUT OF THIS BUT SEEMS IMPOSSIBLE
-# The only parameter would be the variable names to pass onto glm
-# but I don't know how to make it work and not gonna waste my time
-# on this for now, maybe by Friday we can find a way to do it, but
-# we don't need it for the presentation
-
-# Generates a list of indexes for each stratified split
-folds <- KFold(oscars$Oscars_won_some, n = 3, stratified = TRUE, seed = 42)
-# Gets a list with the number of folds
-list_ = 1:length(folds)
-# Gets a list to store the accuracy for each split
-scores = c()
-# For each fold
-for(i in list_){
-  # Gets the indexes for getting the training data
-  list_train = list_[-i]
-  train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
-  # Gets the index for the testing data
-  test_index = folds[[i]]
-  # Splits between training and testing
-  cv.train = oscars[train_index, ]
-  cv.test = oscars[test_index, ]
-  # Trains the model 
-  logreg.train <- glm(Oscars_won_some~certificate + duration+rate+metascore+votes+user_reviews+critic_reviews+popularity+awards_wins+awards_nominations+sc.gross+seasons,
-                family = binomial(link = "logit"), data = cv.train)
-  # Tests the model
-  glm.final.test <- predict.glm(logreg.train,cv.test,type='response')
-  score <- sum(ifelse(glm.final.test > 0.5,"Yes","No")
-             ==cv.test$Oscars_won_some)/
-  length(cv.test$Oscars_won_some)
-  # Appends the score to the list 
-  scores = c(scores, score)
-}
-scores
-mean(scores)
-sd(scores)
 ```
 
 The models hit rate is ~94%. But we need to consider that most of the movies in our dataset will not win an Oscar (~92%, as shown by AccuracyNull above). Our hit rate is higher than the percentage of movies that did not win Oscars, implying that our model's predictive capability, using a 50% threshold, is an improvement over simply using our target's distribution to predict the winners.
 
 Although we had a high True Negative rate (~97%), our True positive rate was lower (~62%). This doesn't show in our hit rate, because only ~8% of our movies actually won oscars. Let us take a look at the ROC Curves, to see if a different threshold quantity would have a significant impact on the predictive capability of the model. 
+
+Let's also verify our results using cross-validation:
+
+```{r}
+# cross_validate function for looping over multiple stratified splits, training a model, and testing. 
+cross_validate <- function(data, fTrain, fHitRate) {
+  folds <- KFold(data$Oscars_won_some, n = 3, 
+                 stratified = TRUE, seed = 42)
+  # Gets a list with the number of folds
+  list_ = 1:length(folds)
+  # Gets a list to store the accuracy for each split
+  scores = c()
+  # For each fold
+  for(i in list_){
+    # Gets the indexes for getting the training data
+    list_train = list_[-i]
+    train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
+    # Gets the index for the testing data
+    test_index = folds[[i]]
+    # Splits between training and testing
+    cv.train = data[train_index, ]
+    cv.test = data[test_index, ]
+    # Trains the model 
+    trained.model <- fTrain(cv.train)
+    # Tests the model
+    y.predicted <-
+      predict(
+        trained.model,
+        cv.test,
+        type='response')
+    
+    score <- fHitRate( y.predicted, cv.test$Oscars_won_some)
+    # Appends the score to the list 
+    scores = c(scores, score)
+  }
+  return(scores)
+}
+
+# Define function for training the model in the cross-validation loop
+model.glm.subset.fTrain <- function(train_data) {
+     return(
+       glm(Oscars_won_some~certificate +
+             duration +
+             rate +
+             metascore +
+             votes +
+             user_reviews +
+             critic_reviews +
+             popularity +
+             awards_wins +
+             awards_nominations +
+             sc.gross +
+             seasons,
+           family = binomial(link = "logit"),
+           data = train_data)
+     )
+}
+
+# define the function for computing the hit rate in the cross-validation loop
+model.glm.fHitRate <- function(pred_y, orig_y) {
+  a <- sum( ifelse(pred_y > 0.5,"Yes","No") == orig_y)
+  b <- length(orig_y)
+  return (a / b)
+}
+  
+# run the cross validation function, and review results
+scores <- oscars %>% cross_validate(
+  fTrain = model.glm.subset.fTrain,
+  fHitRate = model.glm.fHitRate)
+
+scores
+mean(scores)
+sd(scores)
+```
+
+TODO: Write this up....
 
 ```{r}
 model.glm.subset.prob=plogis(predict.glm(model.glm.subset, type = c("response")))
@@ -666,45 +704,33 @@ cm <- confusionMatrix(factor(ifelse(model.glm.final.test > 0.5,"Yes","No")),y_te
 cm$table
 cm$overall[1]
 cm$overall[5]
-
-# Generates a list of indexes for each stratified split
-folds <- KFold(oscars$Oscars_won_some, n = 3, stratified = TRUE, seed = 42)
-# Gets a list with the number of folds
-list_ = 1:length(folds)
-# Gets a list to store the accuracy for each split
-scores = c()
-# For each fold
-for(i in list_){
-  # Gets the indexes for getting the training data
-  list_train = list_[-i]
-  train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
-  # Gets the index for the testing data
-  test_index = folds[[i]]
-  # Splits between training and testing
-  cv.train = oscars[train_index, ]
-  cv.test = oscars[test_index, ]
-  # Trains the model 
-  logreg.train <- glm(Oscars_won_some~awards_wins+Screen_Actors_Guild_won+
-                        Golden_Globes_won+genre_Drama+Writers_Guild_won+
-                        Online_Film_Television_Association_nominated+
-                        BAFTA_won,
-                family = binomial(link = "logit"), data = cv.train)
-  # Tests the model
-  glm.final.test <- predict.glm(logreg.train,cv.test,type='response')
-  score <- sum(ifelse(glm.final.test > 0.5,"Yes","No")
-             ==cv.test$Oscars_won_some)/
-  length(cv.test$Oscars_won_some)
-  # Appends the score to the list 
-  scores = c(scores, score)
-}
-scores
-mean(scores)
-sd(scores)
 ```
 
 We can see that accuracy (~97%) is appoximately 3% better than the accuracy of our manually subsetted logistic regression model from above. We aso see from the confusion table, that our True Negative rate for this model is (~98%), which is ~1% higher than the subsetted model above. Our True Positive rate in this model is ~81%, showing a dramatic increase of ~19 percentage points over the subsetted model above. 
 
 
+```{r}
+#FTrain
+model.glm.final.fTrain <- function(train_data) {
+  return (
+    glm(Oscars_won_some~awards_wins + 
+          Screen_Actors_Guild_won +
+          Golden_Globes_won +
+          genre_Drama+Writers_Guild_won +
+          Online_Film_Television_Association_nominated +
+          BAFTA_won,
+        family = binomial(link = "logit"),
+        data = train_data))
+}
+
+scores <- oscars %>% cross_validate( 
+  fTrain = model.glm.final.fTrain, 
+  fHitRate = model.glm.fHitRate)
+
+scores
+mean(scores)
+sd(scores)
+```
 
 The average accuracy from the cross-validation approach (96.89%) is comparable to the accuracy shown in our model trained only from a single training set (96.93%). The standard deviation of the cross-validation accuracy is also quite low, suggesting that our model is not overfitting our data. 
 
@@ -757,38 +783,31 @@ Restricting our variable selection to reduce the multicollinearity we saw before
 ```{r}
 model.glm.final2.test <- predict.glm(model.glm.final2,oscars_test2,type='response')
 cm <- confusionMatrix(factor(ifelse(model.glm.final2.test > 0.5,"Yes","No")),y_test)
-
 cm$table
 cm$overall[1]
 cm$overall[5]
+```
 
-# Generates a list of indexes for each stratified split
-folds <- KFold(oscars$Oscars_won_some, n = 3, stratified = TRUE, seed = 42)
-# Gets a list with the number of folds
-list_ = 1:length(folds)
-# Gets a list to store the accuracy for each split
-scores = c()
-# For each fold
-for(i in list_){
-  # Gets the indexes for getting the training data
-  list_train = list_[-i]
-  train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
-  # Gets the index for the testing data
-  test_index = folds[[i]]
-  # Splits between training and testing
-  cv.train = oscars[train_index, ]
-  cv.test = oscars[test_index, ]
-  # Trains the model 
-  logreg.train <- glm(Oscars_won_some~awards_wins+genre_Drama+genre_Biography+certificate, family = binomial(link = "logit"),
-      data = cv.train)
-  # Tests the model
-  glm.final.test <- predict.glm(logreg.train,cv.test,type='response')
-  score <- sum(ifelse(glm.final.test > 0.5,"Yes","No")
-             ==cv.test$Oscars_won_some)/
-  length(cv.test$Oscars_won_some)
-  # Appends the score to the list 
-  scores = c(scores, score)
+TODO: do this
+
+```{r}
+# FTrain
+model.glm.final2.fTrain <- function(train_data) {
+  return(
+    glm(Oscars_won_some~awards_wins +
+          genre_Drama +
+          genre_Biography +
+          certificate, 
+        family = binomial(link = "logit"),
+        data = train_data)
+  )
 }
+
+scores <- oscars %>% cross_validate(
+  fTrain = model.glm.final2.fTrain,
+  fHitRate = model.glm.fHitRate
+)
+
 scores
 mean(scores)
 sd(scores)
@@ -826,14 +845,17 @@ oscars_train.renamed <- oscars_train %>%
 oscars_test.renamed <- oscars_test %>% 
   mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
   select(-`genre_Sci-Fi`)
+oscars.renamed <- oscars %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
 
 # We need to split the train data into training and testing so that
 # we don't use our test data for hypertuning mtry
+set.seed(42) 
 train.index <- createDataPartition(oscars_train.renamed$Oscars_won_some, p = .7, list = FALSE)
 train <- oscars_train.renamed[ train.index,]
 test  <- oscars_test.renamed[-train.index,]
 y_testt <- test$Oscars_won_some
-
 
 # Trains the model (low, med, high mtry numbers)
 ranFor.train <- function(mtry) {
@@ -877,41 +899,30 @@ sum(y_test_pred==y_test)/length(y_test)
 y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
 confusionMatrix(y_test_pred, y_test)
 
-
-
-oscarss = oscars %>% 
-  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
-  select(-`genre_Sci-Fi`)
-# Generates a list of indexes for each stratified split
-folds <- KFold(oscars$Oscars_won_some, n = 3, stratified = TRUE, seed = 42)
-# Gets a list with the number of folds
-list_ = 1:length(folds)
-# Gets a list to store the accuracy for each split
-scores = c()
-# For each fold
-for(i in list_){
-  # Gets the indexes for getting the training data
-  list_train = list_[-i]
-  train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
-  # Gets the index for the testing data
-  test_index = folds[[i]]
-  # Splits between training and testing
-  cv.train = oscarss[train_index, ]
-  cv.test = oscarss[test_index, ]
-  # Trains the model 
-  cv.rf <- randomForest(formula=Oscars_won_some~.,
-               importance=TRUE, 
-               proximity=TRUE,
-               mtry=35, 
-               data=cv.train)
-  # Tests the model
-  y_test_pred <- predict(cv.rf,cv.test,
-                         type='response')
-  score <-sum(y_test_pred==cv.test$Oscars_won_some)/
-    length(cv.test$Oscars_won_some)
-  # Appends the score to the list 
-  scores = c(scores, score)
+#fTrain
+model.ranFor.fTrain <- function(train_data) {
+  set.seed(42)
+  return(
+    randomForest(
+      formula=Oscars_won_some~.,
+      importance=TRUE,
+      proximity=TRUE,
+      mtry=35,
+      data=train_data))
 }
+
+#fHitRate
+model.ranFor.fHitRate <- function(pred_y, orig_y) {
+  a <- sum(pred_y==orig_y)
+  b <- length(orig_y)
+  return (a/b)
+}
+
+scores <- oscars.renamed %>% cross_validate(
+  fTrain = model.ranFor.fTrain,
+  fHitRate = model.ranFor.fHitRate
+)
+
 scores
 mean(scores)
 sd(scores)
