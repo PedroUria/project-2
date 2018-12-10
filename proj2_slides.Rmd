@@ -257,12 +257,12 @@ Can we predict if a movie will win at least one Oscar?
 
 - 81 Variables after data pre-processing 
   
-| Model Type    | Var Selection           |  Num Vars | Accuracy | AUC    |
-|---------------|-------------------------|-----------|----------|--------|
-| Logistic Reg  | None                    | 81        | N/A      | N/A    |
-| Logistic Reg  | Manual                  | 12        | 94.25%   | 0.9548 |
-| Logistic Reg  | Forward Selection (BIC) | 4         | 94.63%   | 0.9582 |
-| Random Forest | 35 per split            | 81        | 98.08%   | 0.9743 |
+| Model Type    | Var Selection           |  Num Vars | CV Accuracy | CV Stdev | AUC |
+|---------------|-------------------------|-----------|-------------|----------|----|
+| Logistic Reg  | None                    | 81        | N/A         | N/A      | N/A|
+| Logistic Reg  | Manual                  | 12        | 94.58%      | 0.01303  | 0.9548 |
+| Logistic Reg  | Forward Selection (BIC) | 4         | 95.28%      | 0.00936  | 0.9582 |
+| Random Forest | 35 per split            | 81        | 96.44%      | 0.01361  | 0.9743 |
     
 ## Manual Feature Selection
 
