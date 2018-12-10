@@ -535,11 +535,11 @@ Well... it seems we are ready to train some Machine Learning models!
 
 # Model Building
 
-We decided to tackle the prediction problem using a combination of Logistic Regression and Random Forest Classification because of the categorical nature of the dependent variable.
+We decided to tackle the prediction problem using a combination of Logistic Regression and Random Forest Classification because of the categorical nature of the dependent variable. 
 
 ## Logistic Regression
 
-First we'll build a Multiple Logistic Regression model, then we'll attempt to improve upon it using step-wise forward variable selection. 
+First we'll build a Multiple Logistic Regression model, then we'll attempt to improve upon it using step-wise forward variable selection. Apart from using our train and test sets to evaluate our models, we will also use 3-fold stratified cross-validation to test the variance of our predictive accuracy. We chose stratified cross-validation to ensure the proportion of class labels is maintained in each of the splits. We chose 3-folds instead of the standard 10-folds, because if we were to use smaller splits we'd risk having too few degrees of freedom to train the model, given the scarcity of the oscar winners.
 
 ### Regular Logistic Regression
 
@@ -575,6 +575,43 @@ cm <- confusionMatrix(factor(ifelse(model.glm.subset.test > 0.5,"Yes","No")), y_
 cm$table
 cm$overall[1]
 cm$overall[5]
+
+# I WAS GOING TO MAKE A FUNCTION OUT OF THIS BUT SEEMS IMPOSSIBLE
+# The only parameter would be the variable names to pass onto glm
+# but I don't know how to make it work and not gonna waste my time
+# on this for now, maybe by Friday we can find a way to do it, but
+# we don't need it for the presentation
+
+# Generates a list of indexes for each stratified split
+folds <- KFold(oscars$Oscars_won_some, n = 3, stratified = TRUE, seed = 42)
+# Gets a list with the number of folds
+list_ = 1:length(folds)
+# Gets a list to store the accuracy for each split
+scores = c()
+# For each fold
+for(i in list_){
+  # Gets the indexes for getting the training data
+  list_train = list_[-i]
+  train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
+  # Gets the index for the testing data
+  test_index = folds[[i]]
+  # Splits between training and testing
+  cv.train = oscars[train_index, ]
+  cv.test = oscars[test_index, ]
+  # Trains the model 
+  logreg.train <- glm(Oscars_won_some~certificate + duration+rate+metascore+votes+user_reviews+critic_reviews+popularity+awards_wins+awards_nominations+sc.gross+seasons,
+                family = binomial(link = "logit"), data = cv.train)
+  # Tests the model
+  glm.final.test <- predict.glm(logreg.train,cv.test,type='response')
+  score <- sum(ifelse(glm.final.test > 0.5,"Yes","No")
+             ==cv.test$Oscars_won_some)/
+  length(cv.test$Oscars_won_some)
+  # Appends the score to the list 
+  scores = c(scores, score)
+}
+scores
+mean(scores)
+sd(scores)
 ```
 
 The models hit rate is ~94%. But we need to consider that most of the movies in our dataset will not win an Oscar (~92%, as shown by AccuracyNull above). Our hit rate is higher than the percentage of movies that did not win Oscars, implying that our model's predictive capability, using a 50% threshold, is an improvement over simply using our target's distribution to predict the winners.
@@ -594,7 +631,7 @@ The area under the curve is ~95%, which is greater than the no data rate of ~92%
 
 ### Stepwise Logistic Regression
 
-Now we'll attempt to build a Logistic Regrssion model doing feature selection using stepwise regression with BIC as an evaluation metric.
+Now we'll attempt to build a Logistic Regression model doing feature selection using stepwise regression with BIC as an evaluation metric.
 
 ```{r}
 # creating a null model
@@ -629,6 +666,40 @@ cm <- confusionMatrix(factor(ifelse(model.glm.final.test > 0.5,"Yes","No")),y_te
 cm$table
 cm$overall[1]
 cm$overall[5]
+
+# Generates a list of indexes for each stratified split
+folds <- KFold(oscars$Oscars_won_some, n = 3, stratified = TRUE, seed = 42)
+# Gets a list with the number of folds
+list_ = 1:length(folds)
+# Gets a list to store the accuracy for each split
+scores = c()
+# For each fold
+for(i in list_){
+  # Gets the indexes for getting the training data
+  list_train = list_[-i]
+  train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
+  # Gets the index for the testing data
+  test_index = folds[[i]]
+  # Splits between training and testing
+  cv.train = oscars[train_index, ]
+  cv.test = oscars[test_index, ]
+  # Trains the model 
+  logreg.train <- glm(Oscars_won_some~awards_wins+Screen_Actors_Guild_won+
+                        Golden_Globes_won+genre_Drama+Writers_Guild_won+
+                        Online_Film_Television_Association_nominated+
+                        BAFTA_won,
+                family = binomial(link = "logit"), data = cv.train)
+  # Tests the model
+  glm.final.test <- predict.glm(logreg.train,cv.test,type='response')
+  score <- sum(ifelse(glm.final.test > 0.5,"Yes","No")
+             ==cv.test$Oscars_won_some)/
+  length(cv.test$Oscars_won_some)
+  # Appends the score to the list 
+  scores = c(scores, score)
+}
+scores
+mean(scores)
+sd(scores)
 ```
 
 We can see that accuracy (~97%) is appoximately 3% better than the accuracy of our manually subsetted logistic regression model from above. We aso see from the confusion table, that our True Negative rate for this model is (~98%), which is ~1% higher than the subsetted model above. Our True Positive rate in this model is ~81%, showing a dramatic increase of ~19 percentage points over the subsetted model above. 
@@ -690,34 +761,7 @@ cm <- confusionMatrix(factor(ifelse(model.glm.final2.test > 0.5,"Yes","No")),y_t
 cm$table
 cm$overall[1]
 cm$overall[5]
-```
 
-Our Accuracy is still above the No Information Rate (AccuracyNull above), as with the previous model, but we did see a reduction of the overall prediction accuracy and true positive rates compared to the other step-wise model. 
-
-```{r}
-# ROC Curve
-prob=plogis(predict.glm(model.glm.final2, type = c("response")))
-#head(prob)
-h <- roc(Oscars_won_some~prob, data=oscars_train)
-plot(h)
-# Area Under the Curve
-auc(h)
-```
-
-AUC is lower than our initial forward selection model. 
-
-```{r}
-vif(model.glm.final2)
-```
-
-The VIF statistic is improved relative to the previous model, as none of the variables have VIF scores above 2. 
-
-#### Cross Validation
-
-Let's use 3-fold stratified cross-validation to test the variance of our predictive accuracy. We chose stratified cross-validation to ensure the proportion of class labels is maintained in each of the splits. We chose 3-folds instead of the standard 10-folds, because if we were to use smaller splits we'd risk having too few degrees of freedom to train the model, given the scarcity of the oscar winners.
-
-```{r}
-names(model.glm.final2$coefficients)
 # Generates a list of indexes for each stratified split
 folds <- KFold(oscars$Oscars_won_some, n = 3, stratified = TRUE, seed = 42)
 # Gets a list with the number of folds
@@ -750,7 +794,25 @@ mean(scores)
 sd(scores)
 ```
 
+Our Accuracy is still above the No Information Rate (AccuracyNull above), as with the previous model, but we did see a reduction of the overall prediction accuracy and true positive rates compared to the other step-wise model. 
 
+```{r}
+# ROC Curve
+prob=plogis(predict.glm(model.glm.final2, type = c("response")))
+#head(prob)
+h <- roc(Oscars_won_some~prob, data=oscars_train)
+plot(h)
+# Area Under the Curve
+auc(h)
+```
+
+AUC is lower than our initial forward selection model. 
+
+```{r}
+vif(model.glm.final2)
+```
+
+The VIF statistic is improved relative to the previous model, as none of the variables have VIF scores above 2. 
 
 ## Random Forest
 
@@ -767,7 +829,7 @@ oscars_test.renamed <- oscars_test %>%
 
 # We need to split the train data into training and testing so that
 # we don't use our test data for hypertuning mtry
-train.index <- createDataPartition(oscars_train$Oscars_won_some, p = .7, list = FALSE)
+train.index <- createDataPartition(oscars_train.renamed$Oscars_won_some, p = .7, list = FALSE)
 train <- oscars_train.renamed[ train.index,]
 test  <- oscars_test.renamed[-train.index,]
 y_testt <- test$Oscars_won_some
@@ -815,6 +877,46 @@ sum(y_test_pred==y_test)/length(y_test)
 y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
 confusionMatrix(y_test_pred, y_test)
 
+
+
+oscarss = oscars %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+# Generates a list of indexes for each stratified split
+folds <- KFold(oscars$Oscars_won_some, n = 3, stratified = TRUE, seed = 42)
+# Gets a list with the number of folds
+list_ = 1:length(folds)
+# Gets a list to store the accuracy for each split
+scores = c()
+# For each fold
+for(i in list_){
+  # Gets the indexes for getting the training data
+  list_train = list_[-i]
+  train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
+  # Gets the index for the testing data
+  test_index = folds[[i]]
+  # Splits between training and testing
+  cv.train = oscarss[train_index, ]
+  cv.test = oscarss[test_index, ]
+  # Trains the model 
+  cv.rf <- randomForest(formula=Oscars_won_some~.,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=35, 
+               data=cv.train)
+  # Tests the model
+  y_test_pred <- predict(cv.rf,cv.test,
+                         type='response')
+  score <-sum(y_test_pred==cv.test$Oscars_won_some)/
+    length(cv.test$Oscars_won_some)
+  # Appends the score to the list 
+  scores = c(scores, score)
+}
+scores
+mean(scores)
+sd(scores)
+
+
 # Computes the importance of each variable
 # by accuracy
 VI_F1 = importance(best.ranFor.model, type=1)
@@ -831,7 +933,7 @@ How do we get a ROC Curve.
 
 ```{r}
 #head(prob)
-h <- roc(oscars_train$Oscars_won_some, best.ranFor.model$votes[, 2])
+h <- roc(oscars_train.renamed$Oscars_won_some, best.ranFor.model$votes[, 2])
 plot(h)
 # Area Under the Curve
 auc(h)
