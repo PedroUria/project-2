@@ -3,6 +3,7 @@ title: "Oscars... WHAT?"
 date: "12/06/2018"
 output:
   html_document:
+    code_folding: hide
     highlight: tango
     number_sections: yes
     theme: united
@@ -21,17 +22,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 TODO: Revise to Question-first mind-set
 
-## Objectives
+## Objective
 
-The goal of this project is to develop models to predict whether a movie will win some kind of Oscar award or not, and potentially .....(TODO). In order to achieve this, we will use a dataset that [BigMl](https://bigml.com/) [put together](https://bigml.com/user/academy_awards/gallery/dataset/5a94302592fb565ed400103b) and used to train a deep neural network to get [perfect predictions](https://blog.bigml.com/2018/03/01/predicting-the-2018-oscar-winners/) for the 8 categories they targeted for 2018. However, this does not mean their model is perfect, as ..... (TODO: source for where they say even they were surprised?).
+The goal of this project is to develop models to predict whether a movie will win some kind of Oscar award or not. In order to achieve this, we will use a dataset that [BigMl](https://bigml.com/) [put together](https://bigml.com/user/academy_awards/gallery/dataset/5a94302592fb565ed400103b) and used to train a deep neural network to get [perfect predictions](https://blog.bigml.com/2018/03/01/predicting-the-2018-oscar-winners/) for the 8 categories they targeted for 2018. However, this does not mean their model is perfect, as ..... (TODO: source for where they say even they were surprised?).
 
 ## Motivation
 
-The motivation is to use these models to identify the most relevant features that make a movie win an Academy Award, and also to have an edge when betting for the next Oscars winners. TODO: more motivations...?
+The motivation is to use these models to identify the most relevant features that make a movie win an Academy Award, and also to have an edge when betting for the next Oscars winners. TODO: more motivations...? 
 
 ## The Data
 
-Gathering the data was very straightforward in this case. After coming up with the idea for the project, a simple Google search of: *oscars machine learning* almost directly handed us the dataset. We quickly found [this article](https://medium.com/enrique-dans/and-this-years-oscar-goes-to-bigml-machine-learning-1823837ae3aa), which lead us to BigML. After signing up on their website, we were able to download the dataset for free. However, this would not mean that the data would be ready to be fed to our machine learning algorithms right away... which we easily realized after doing some EDA. BigML combined data from IMDB with entries that specify whether a movie has won some other awards previous to the Oscars.
+Gathering the data was very straightforward in this case. After coming up with the idea for the project, a simple Google search of: *oscars machine learning* almost directly handed us the dataset. We quickly found [this article](https://medium.com/enrique-dans/and-this-years-oscar-goes-to-bigml-machine-learning-1823837ae3aa), which lead us to BigML. After signing up on their website, we were able to download the dataset for free. However, this would not mean that the data would be ready to be fed to our machine learning algorithms right away... which we quickly realized after doing some EDA. BigML combined data from IMDB with entries that specify whether a movie has won or has been nominated for some other awards previous to the Oscars.
 
 # Exploratory Data Analysis (EDA)
 
@@ -80,8 +81,7 @@ import::from(caret, "confusionMatrix")
 
 ## First Contact
 
-Let's load the data and see what features we have and how large is our dataset
-
+Let's load the data and see what features we have and how large our dataset is
 ```{r}
 oscars <- read_csv("oscars.csv", col_types = cols())
 #View(head(oscars)) # Go to the .Rdm file and uncomment this line
@@ -92,7 +92,7 @@ dim(oscars)
 
 So we have 1183 rows and 119 features. `year` will be useful to make a train-test split later, but we will drop it after that. `movie` and `movie_id` will also be dropped as they are not relevant for prediction. We will need to encode `certificate`, while `duration` is already in a suitable form, and `genre` will have to be converted to dummy variables. `rate` and `metascore` are also fine. We will also drop `synopsis`, which is very unlikely to matter significantly, and which would also require Natural Language Processing, as skill we lack? (TODO: maybe delete the NLP part). `votes` is also fine, while `gross` will need to be modified to account for inflation over the years. We will also drop `release_date` but will use `release_date.month` (at the end of the features) to create a new column `season`, which is known to be a relevant factor in winning an Oscar. `release_date.year`, `release_date.day-of-month` and `release_date.day-of-week` will also be dropped. `user_reviews`, `critic_reviews` and `popularity` are also numerical metrics that come from IMDB, and thus are already on their suitable form. By visual inspection, `awards_wins` and `awards_nominations` seem to count the number of awards and nominations other than the Oscars, but we will have to make sure of this. 
 
-Then we have 16 binary columns saying whether a movie won or was nominated for one of the following Oscars' categories
+Then we have 16 binary columns saying whether a movie won or was nominated for one of the following Oscars' categories:
 
 1. Best Picture  
 2. Best Director  
@@ -113,12 +113,11 @@ The rest of the features all follow the same pattern: first we have `award_name_
 
 Having looked and experimented with several ways of imputing the missings we have decided to handle imputing on only the set of variables we expect to apply to the model for simplicity. See section [[Imputation]] below.
 
-
-TODO: Talk about this...
+While normally the missingness is the first thing to be dealt with, in our case it makes more sense to deal with it after getting rid of all the features we do not want to use.
 
 ## Quality Checks
 
-Now let's make some quality checks, before diving into preprocessing. Our movies range from
+Now let us make some quality checks, before diving into preprocessing. Our movies range from
 ```{r}
 sort(unique(oscars$year))
 ```
@@ -126,13 +125,13 @@ and for each year, we have
 ```{r}
 table(oscars$year)
 ```
-about 70 movies, but for 2017 we only have 30. We are thus not going to use the data from 2017, instead focusing on 2000-2016 data, which appears more complete.
+about 70 movies, but for 2017 we only have 30. We are thus not going to use the data from 2017, and will instead focus on 2000-2016 data, which is clearly more complete.
 ```{r}
 # Lied about not doing yet any preprocessing...
 oscars = filter(oscars, year != 2017)
 ```
 
-One other thing we must make sure of is that we have only 16 winners for each category. TODO: Do this...
+One other thing we must make sure of is that we have only 17 winners for each category. 
 ```{r}
 # Pattern to get only the relevant columns
 pat.oscar_won <- "Oscar_.*_won$"
@@ -145,11 +144,10 @@ t(oscars %>%
   summarise_all(sum))
 ```
 
-OK, so for now the data makes sense. However, it is very clear that our data is heavily imbalanced. TODO: Explain how we will deal with this later... examples: balancing the weights, oversampling? or maybe we don't need to.
+OK, so for now the data makes sense. However, it is very clear that our data is heavily imbalanced. That is, at best only 8 movies will have a `Yes` entry on the `Oscars_won_some` column (which we have not computed yet) for each year. TODO: Explain how we will deal with this later... examples: balancing the weights, oversampling? or maybe we don't need to.
 
-Let's also make sure that `awards_wins` does not contain any information regarding the Oscars, as this would not be known for us when making future predictions. 
-
-```{r}
+Let's also make sure that `awards_wins` does not contain any information regarding the Oscars, as this would not be known to us when making future predictions
+```{r echo=TRUE}
 # Gets the movies that won Oscars for best picture 
 oscars_won_best_picture <- subset(oscars, Oscar_Best_Picture_won == "Yes")
 dim(oscars_won_best_picture)
@@ -175,10 +173,11 @@ num_awards_won
 ```
 (TODO: maybe do this for more movies, just to be sure). Good! This feature is fair and probably very important. 
 
-## Data Preprocessing
+# Data Preprocessing
 
-Let's proceed on an orderly manner. First, let's get the target column, as it will be useful for later preprocessing. 
+## Feature Manipulation
 
+Let us proceed on an orderly manner. First, we will compute the target column, as it will be useful for later preprocessing. 
 ```{r oscars_won_some}
 # sum number of wins identified per row for cols
 tmp.won <- rowSums(
@@ -207,84 +206,48 @@ oscars <- oscars %>% mutate(
 )
 ```
 
+Now, let us encode `certificate`, which follows this [system](https://www.wikiwand.com/en/Motion_Picture_Association_of_America_film_rating_system) and this [one](https://www.wikiwand.com/en/TV_parental_guidelines_(US)#/TV-MA). That is, `certificate` is an ordinal variable and needs to be encoded as such (preserving the order). Well... actually, even if there is some order in it, we would not know how to interpret this order, and it could also be argued that there is no order to begin with, so we will turn it into a factor instead (which will then be one-hot-encoded by R when running Logistic Regression)
 
-Now, let's encode `certificate`, which follows this [system](https://www.wikiwand.com/en/Motion_Picture_Association_of_America_film_rating_system) and this [one](https://www.wikiwand.com/en/TV_parental_guidelines_(US)#/TV-MA). That is, `certificate` is an ordinal variable and needs to be encoded as such (preserving the order).
-```{r}
-# Prints the unique values of the certificate column
-unique(oscars$certificate)
-# Prints the movies "Unrated" and "Not Rated"
-subset(oscars, certificate == "Not Rated")[c("movie")]
-subset(oscars, certificate == "Unrated")[c("movie")]
-```
-
-Let's get rid of these rows. They would only make us create more columns for `certificate`, as we cannot encode them, and they are not well known movies (aside from The Great Beauty...) and did not win any Oscars.
-```{r}
-# Gets the indexes of such rows
-not_rated_index = as.numeric(rownames(subset(oscars, certificate == "Not Rated")[c("movie")]))
-unrated_index =  as.numeric(rownames(subset(oscars, certificate == "Unrated")[c("movie")]))
-
-# Checks if any of them won an oscar
-for(i in 1:nrow(oscars[not_rated_index, ])){
-  if(oscars[not_rated_index, ]$Oscars_won_some[i] == "Yes"){
-    print("Yes")
-  }
-}
-for(i in 1:nrow(oscars[unrated_index, ])){
-  if(oscars[unrated_index, ]$Oscars_won_some[i] == "Yes"){
-    print("Yes")
-  }
-}
-```
-
-Assumption checked. Let us drop them.
-```{r}
-dim(oscars)
-# https://github.com/tidyverse/dplyr/issues/3196
-oscars = oscars %>% filter(certificate != "Not Rated" | is.na(certificate)) %>% filter(certificate != "Unrated" | is.na(certificate))
-dim(oscars)
-```
-
-Now let us treat the missing values...
+Before doing so, we need to treat any missing values
 ```{r}
 unique(oscars$certificate)
 sum(is.na(oscars$certificate))
 ```
 
-well, let's actually see if we can get the missing values imputed first.
+We could try to impute them by looking them up on the web
 ```{r}
 titles_missing_values = oscars[is.na(oscars$certificate), ]$movie
 titles_missing_values
 ```
 
-If we look up these titles in IMDB, they are not rated. Let's check once again if they won any Oscars:
+If we look up these titles in IMDB, two of them do not have any entry specifying rating, and the others are "Not Rated". This means that we can turn the NAs to `Not Rated`, and we should also turn the `Unrated` to `Not Rated`, in order not to create unneccessary dummy features
 ```{r}
-for(i in titles_missing_values){
-  if(subset(oscars, movie == i)$Oscars_won_some == "Yes"){
-    print("Yes")}
-}
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "Unrated", "Not Rated"))
+oscars$certificate[is.na(oscars$certificate)] = "Not Rated"
 ```
 
-The did not, so let's drop them too.
+When we tested our first model, we got this error: "Error in model.frame.default(Terms, newdata, na.action = na.action, xlev = object$xlevels) : factor certificate has new levels TV-MA". This was because there is only one movie with `certificate` = `TV-MA`
 ```{r}
-oscars = oscars %>% filter(is.na(certificate) == FALSE)
-dim(oscars)
+table(oscars$certificate)
 ```
 
-And finally let's encode it...
+This movie is
 ```{r}
-#TODO: I'm actually pretty sure this should just be a factor variable
-unique(oscars$certificate)
-oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "PG-13", 3))
-oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "G", 1))
-oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "R", 4))
-oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "PG", 2))
-oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "TV-MA", 5))
-oscars$certificate = as.numeric(oscars$certificate)
-unique(oscars$certificate)
+subset(oscars, certificate == "TV-MA")$movie
+```
+
+and although it did win an Oscar and 5 other [awards](https://www.imdb.com/title/tt5278466/awards?ref_=tt_awd), TODO: our only option is to drop it
+```{r}
+oscars  = oscars[!(oscars$certificate=="TV-MA"),]
+```
+
+Finally, let us turn `certificate` into a factor
+```{r}
+oscars$certificate = factor(oscars$certificate)
 ```
 
 
-Moving on to `genre`, now we do need to create dummy variables
+Moving on to `genre`, now we will manually create dummy variables, because we have movies with more than one genre, and simply turning it into a factor would result on too many lavels
 ```{r}
 # get all of the values parsed by |'s
 genre_unique = unique(oscars$genre)
@@ -354,21 +317,10 @@ for(i in names(gen)){
   oscars[c(i)][[1]] = factor(oscars[c(i)][[1]])
 }
 ```
-When we tried to run our model, we got this error ("Prints out this error: Error in `contrasts<-`(`*tmp*`, value = contr.funs[1 + isOF[nn]]) : contrasts can be applied only to factors with 2 or more levels"), and it was because there is only one movie that falls into the "documentary" genre, and thus only one level for `genre_documentary`
-```{r}
-table(oscars$genre_Documentary)
-```
-The movie in question is 
-```{r}
-subset(oscars, genre_Documentary == "Yes")$movie
-```
-and [here](https://www.imdb.com/title/tt5278466/awards) are the it received or was nominated for. As it is not that relevant and very annoying (TODO: Find a better way if there is one), let's drop it
-```{r}
-oscars <- oscars %>% select(-genre_Documentary)
-```
 
-The next feature that needs some manipulation is `gross`. The value of the dollar changed from 2000 to 2016, so we'll need to adjust the values we have to be based on a standard. We'll use the value of the dollar in the year 2000 as a common unit. To convert between 2001 through 2016 dollar amounts, and the 2000 dollar amounts we'll need something to use as a conversion factor. We'll use the Consumer Price Index (CPI) data provided by the United States Bureau of Labor Statistics, to get that conversion factor. Their site (https://data.bls.gov/timeseries/CUUR0000SA0), provides CPI data by month output to an excel sheet. We've opted to include the Annual average, and base our conversion on that. After cleaning the data up in excel, we saved it off in CPI_20181201.csv, which we'll load now.
+TODO: Lol, the movie I dropped above on certificate was the same one as the one below, so I  deleted the same process for `genre_documentary`.
 
+The next feature that needs some manipulation is `gross`. The value of the dollar changed from 2000 to 2016, so we'll need to adjust the values we have to be based on a standard. We'll use the value of the dollar in the year 2000 as a common unit. To convert between 2001 through 2016 dollar amounts, and the 2000 dollar amounts we'll need something to use as a conversion factor. We'll use the Consumer Price Index (CPI) data provided by the United States Bureau of Labor Statistics, to get that conversion factor. Their [site](https://data.bls.gov/timeseries/CUUR0000SA0), provides CPI data by month output to an excel sheet. We've opted to include the Annual average, and base our conversion on that. After cleaning the data up in excel, we saved it off in CPI_20181201.csv, which we'll load now
 ```{r}
 # Pull in Consumer Price Index Data from 
 # Burea of Labor Statistics to account for inflation
@@ -376,8 +328,7 @@ cpi <- read_csv('CPI_20181201.csv', col_types = cols())
 summary(cpi)
 ```
 
-Now we just need a function for retrieving the correct CPI for a given year.
-
+Now we just need a function for retrieving the correct CPI for a given year
 ```{r}
 # data ranged from 2000 (1) to 2017 (18)
 # so... year mod 2000 + 1 is the indexing scheme.
@@ -388,8 +339,7 @@ cpif <- function(year) {
 }
 ```
 
-Now we simply apply the conversion factor derived from the CPI data. 
-
+Now we simply apply the conversion factor derived from the CPI data
 ```{r}
 
 oscars = oscars %>% mutate(
@@ -420,8 +370,8 @@ currency_info %>%
   geom_line()
 ```
 
-We also want to create a `season` variable, based on the release date information, and using the meteorlogically defined seasons in the northern hemisphere as described here: https://www.timeanddate.com/calendar/aboutseasons.html
 
+We also want to create a `season` variable, based on the release date information, and using the meteorologically defined seasons in the northern hemisphere as described [here](https://www.timeanddate.com/calendar/aboutseasons.html)
 ```{r}
 season <- function(month) {
   retVal <- "Fall"
@@ -447,8 +397,7 @@ oscars <- oscars %>%
 oscars$seasons = factor(oscars$seasons)
 ```
 
-All that is left is dropping the undesired columns, and ensuring the correct data types are being used.
-
+All that is left is dropping the undesired columns
 ```{r}
 drop.cols <- c(
   'movie',
@@ -469,17 +418,15 @@ oscars <- oscars %>%
   select(-matches("Oscar_.*_won$"))
 ```
 
-### Imputation
+## Imputation
 
-Let's figure out to handle any missing values, now that we're removed some of the columns based on the EDA from above.
-
+Let us figure out how to handle any missing values, now that we have removed some of the columns based on the EDA from above 
 ```{r}
 missing_per_column = sapply(oscars, function(x) sum(is.na(x)))
 missing_per_column[missing_per_column != 0]
 ```
 
-Using the `tidyimpute` package to impute the missing values identified above based on the mean. After some consideration, this seemed the best approach to avoid having the imputation inject error into our model. 
-
+Using the `tidyimpute` package, we will impute the missing values identified above based on the mean. After some consideration, this seemed the best approach to avoid having the imputation inject error into our model
 ```{r}
 oscars <- oscars %>% impute_mean(
   metascore, 
@@ -490,15 +437,15 @@ oscars <- oscars %>% impute_mean(
 )
 ```
 
-### Train and Test Split
-
-and finally let's make sure that we only have the features we want for prediction, and that their types are the right ones (we did not drop `year` yet as we will use it for splitting intro training and testing)
+and finally let us make sure that we only have the features we want for prediction, and that their types are the right ones (we did not drop `year` yet as we will use it for splitting intro training and testing)
 ```{r}
-sapply(oscars, typeof)
+#sapply(oscars, typeof) #Uncomment this line if you want to check the types
 ```
 TODO: again.. maybe we should drop the `Oscar_..._nominated` if we are only going to predict `Oscars_won_some` and use only `Oscar_nominated` instead. 
 
-Everything seems fine. Let's move onto splitting the data. Let's use from 2000 to 2012 (~75%) for training and from 2013 to 2016 for testing. There is no need to stratify as we are not doing a random split, that is, both train and test sets will have the same proportion of class labels, because we are splitting by years. 
+## Train and Test Split
+
+Everything seems fine. Let us move onto splitting the data. We are going to use data from 2000 to 2012 ($\approx$75%) for training and from 2013 to 2016 for testing. There is no need to stratify as we are not doing a random split, that is, both train and test sets will have the same proportion of class labels, because we are splitting by years
 ```{r}
 # Splits by years
 oscars_train <- subset(oscars, year %in% c(2000:2012)) 
@@ -512,49 +459,40 @@ oscars_test <- select(oscars_test, -year)
 # Gets the target
 y_train = oscars_train$Oscars_won_some
 y_test = oscars_test$Oscars_won_some
-# Drops the target column
-# TODO: Not sure it's necessary to drop target col?
-X_train <- select(oscars_train, -Oscars_won_some)
-X_test <- select(oscars_test, -Oscars_won_some)
 ```
 
-### Standardization
+## Standardization
 
 The last step before we can train our models is standardizing. By default, R omits standardizing factor variables (TODO: Is this true?), so we do not need to be concerned about that. We will follow [this method](https://machinelearningmastery.com/pre-process-your-dataset-in-r/)
 ```{r}
 scaleParam <- preProcess(oscars_train, method=c("center", "scale"))
 oscars_train <- predict(scaleParam, oscars_train)
 oscars_test <- predict(scaleParam, oscars_test)
-
-scaleParam <- preProcess(X_train, method=c("center", "scale"))
-X_train <- predict(scaleParam, X_train)
-X_test <- predict(scaleParam, X_test)
 ```
 
 Well... it seems we are ready to train some Machine Learning models!
 
 # Model Building
 
-We decided to tackle the prediction problem using a combination of Logistic Regression and Random Forest Classification because of the categorical nature of the dependent variable. 
+We decided to tackle the prediction problem using Logistic Regression and Random Forest classifiers due to the categorical nature of the dependent variable. Apart from using our train and test sets to evaluate our models, we will also use 3-fold stratified cross-validation to test the variance of our predictive accuracy. We chose stratified cross-validation to ensure the proportion of class labels is maintained in each of the splits. We chose 3-folds instead of the standard 10-folds, because if we were to use smaller splits we would TODO: this: risk having too few degrees of freedom to train the model, given the scarcity of the Oscar winners does not really make sense... by having more splits, we would have more training data and less testing data, so the issue would be that we would have too few testing data to get accurate metrics.
 
 ## Logistic Regression
 
-First we'll build a Multiple Logistic Regression model, then we'll attempt to improve upon it using step-wise forward variable selection. Apart from using our train and test sets to evaluate our models, we will also use 3-fold stratified cross-validation to test the variance of our predictive accuracy. We chose stratified cross-validation to ensure the proportion of class labels is maintained in each of the splits. We chose 3-folds instead of the standard 10-folds, because if we were to use smaller splits we'd risk having too few degrees of freedom to train the model, given the scarcity of the oscar winners.
+First we will build a Multiple Logistic Regression model, then we shall attempt to improve upon it using step-wise forward variable selection. 
 
 ### Regular Logistic Regression
 
-Let's just apply a Logistic Regression model based on all the available variables. 
+First we will apply a Logistic Regression model based on all the available variables. 
 
 ```{r}
 model.glm.all <- glm(Oscars_won_some~., family = binomial(link = "logit"), data = oscars_train)
 ```
 
-In viewing the summary of this model we can see that something has clearly gone wrong, in fact R gives us a warning stating that the algorithm did not converge, and that fitted probabilities numerically 0 or 1 occurred. The standard errors are all in the thousands, the z value statistics are all close to zero, and the p-values are close to 1. accross the majority of the the variable types. There are also two independent variables whose coefficients that couldn't be estimated.
+In viewing the summary of this model we can see that something has clearly gone wrong, in fact R gives us a warning stating that the algorithm did not converge, and that fitted probabilities numerically 0 or 1 occurred. The standard errors are all in the thousands, the z value statistics are all close to zero, and the p-values are close to 1 across the majority of the the variable types. There are also two independent variables whose coefficients could not be estimated.
 
-After a good deal of discussion, and experimentation we determined that the issue with this model was ultimately us having too few degrees of freedom for the model to successfully train with this many independent variables (hence why some estimates were NAs and p-values where all close to 1)  
+After a good deal of discussion and experimentation, we determined that the issue with this model was ultimately us having too few degrees of freedom for the model to successfully train with these many independent variables (hence why some estimates were NAs and p-values where all close to 1)  
 
-Having done that, lets experiment with just using a subset of the variables available:
-
+Having done that, lets experiment with just using a subset of the variables available
 ```{r}
 # Trains the model
 model.glm.subset <-  glm(Oscars_won_some~certificate + duration+rate+metascore+votes+user_reviews+critic_reviews+popularity+awards_wins+awards_nominations+sc.gross+seasons,
@@ -563,8 +501,7 @@ model.glm.subset <-  glm(Oscars_won_some~certificate + duration+rate+metascore+v
 
 The subsetted model shows that the model estimated all the coefficients, and has more reasonable z-value and p-value statistics. The most significant features by far, appear to be `certificate`, `user_reviews`, and `award_wins`.
 
-Let's how well our model predicts the oscar winners in our training set, using cross_validation.
-
+Well, let us test this very simple model using our testing set
 ```{r}
 # Tests the model
 model.glm.subset.test <- predict.glm(model.glm.subset,oscars_test,type='response')
@@ -576,12 +513,21 @@ cm$overall[1]
 cm$overall[5]
 ```
 
-The models hit rate is ~94%. But we need to consider that most of the movies in our dataset will not win an Oscar (~92%, as shown by AccuracyNull above). Our hit rate is higher than the percentage of movies that did not win Oscars, implying that our model's predictive capability, using a 50% threshold, is an improvement over simply using our target's distribution to predict the winners.
+The models hit rate is ~94%. But we need to consider that most of the movies in our dataset will not win an Oscar (~92%, as shown by AccuracyNull above). Our hit rate is higher than the percentage of movies that did not win Oscars, implying that our model's predictive capability, using a 50% threshold, is an improvement over simply using our target's distribution to predict the winners. TODO: Make clear that this means classifying all movies as not winners, because if we randomly choose 92% of the movies as not winners and 8% of the movies as winners, we will most likely end up with less that 92% accuracy!
 
-Although we had a high True Negative rate (~97%), our True positive rate was lower (~62%). This doesn't show in our hit rate, because only ~8% of our movies actually won oscars. Let us take a look at the ROC Curves, to see if a different threshold quantity would have a significant impact on the predictive capability of the model. 
+Although we had a high True Negative rate (~97%), our True positive rate was lower (~62%). This does not show in our hit rate, because only ~8% of our movies actually won Oscars. Let us take a look at the ROC Curves, to see if a different threshold quantity would have a significant impact on the predictive capability of the model
+```{r}
+model.glm.subset.prob=plogis(predict.glm(model.glm.subset, type = c("response")))
+#head(prob)
+model.glm.subset.h <- roc(Oscars_won_some~model.glm.subset.prob, data=oscars_train)
+plot(model.glm.subset.h)
+# Area Under the Curve
+auc(model.glm.subset.h)
+```
+The area under the curve is ~95%, which is greater than the no data rate of ~92% that we found before implying that our model discriminates well at different thresholds.
 
-Let's also verify our results using cross-validation:
 
+Before moving on to step-wise forward selection, we shall verify our results using cross-validation
 ```{r}
 # cross_validate function for looping over multiple stratified splits, training a model, and testing. 
 cross_validate <- function(data, fTrain, fHitRate) {
@@ -601,6 +547,10 @@ cross_validate <- function(data, fTrain, fHitRate) {
     # Splits between training and testing
     cv.train = data[train_index, ]
     cv.test = data[test_index, ]
+    # Standardizes the new data
+    scaleParam <- preProcess(cv.train, method=c("center", "scale"))
+    cv.train <- predict(scaleParam, cv.train)
+    cv.test <- predict(scaleParam, cv.test)
     # Trains the model 
     trained.model <- fTrain(cv.train)
     # Tests the model
@@ -653,23 +603,11 @@ scores
 mean(scores)
 sd(scores)
 ```
-
-TODO: Write this up....
-
-```{r}
-model.glm.subset.prob=plogis(predict.glm(model.glm.subset, type = c("response")))
-#head(prob)
-model.glm.subset.h <- roc(Oscars_won_some~model.glm.subset.prob, data=oscars_train)
-plot(model.glm.subset.h)
-# Area Under the Curve
-auc(model.glm.subset.h)
-```
-
-The area under the curve is ~95%, which is greater than the no data rate of ~92% that we found before implying that our model discriminates well at different thresholds.
+Upon the looks of this, our model has a relatively high variance when using trained and test on different sets. This means that this model will likely not generalize well on new unseen data, and thus will be unreliable for future predictions. 
 
 ### Stepwise Logistic Regression
 
-Now we'll attempt to build a Logistic Regression model doing feature selection using stepwise regression with BIC as an evaluation metric.
+Now we will attempt to build a Logistic Regression model doing feature selection using stepwise regression with BIC as an evaluation metric.
 
 ```{r}
 # creating a null model
@@ -679,6 +617,7 @@ model.glm.null <-  glm(Oscars_won_some~1,
 model.glm.all <- glm(Oscars_won_some~.,
                 family = binomial(link = "logit"), data = oscars_train)
 ```
+Note that these warnings ... TODO
 
 ```{r include=FALSE}
 # use step to apply stepwise forward selection with BIC as a evaluation metric
@@ -690,10 +629,9 @@ model.glm.final <- step(model.glm.null, scope = formula(model.glm.all), directio
 summary(model.glm.final)
 ```
 
-The Summary shows Std. Error terms that are much more reasonable, and only includes variables that are significant at least to the 5% level or higher. The forward stepwise variable selection chose 7 out of the 81 variables that were available to it, which allows for a much more interpretable model.
+The Summary shows Std. Error terms that are much more reasonable, and only includes variables that are significant at least to the 5% level or higher. The forward stepwise variable selection chose 7 out of the 81 variables that were available to it, which allows for a much more interpret able model.
 
-Let us see how well it predicts.
-
+Let us see how well it predicts
 ```{r include=FALSE}
 model.glm.final.test <- predict.glm(model.glm.final,oscars_test,type='response')
 ```
@@ -706,9 +644,21 @@ cm$overall[1]
 cm$overall[5]
 ```
 
-We can see that accuracy (~97%) is appoximately 3% better than the accuracy of our manually subsetted logistic regression model from above. We aso see from the confusion table, that our True Negative rate for this model is (~98%), which is ~1% higher than the subsetted model above. Our True Positive rate in this model is ~81%, showing a dramatic increase of ~19 percentage points over the subsetted model above. 
+We can see that accuracy (~97%) is approximately 3% better than the accuracy of our manually subsetted logistic regression model from above. We also see from the confusion table, that our True Negative rate for this model is (~98%), which is ~1% higher than the subsetted model above. Our True Positive rate in this model is ~81%, showing a dramatic increase of ~19 percentage points over the subsetted model above. 
 
+We still want to see how well our model discriminates at different thresholds
+```{r}
+# ROC Curve
+prob=plogis(predict.glm(model.glm.final, type = c("response")))
+#head(prob)
+h <- roc(Oscars_won_some~prob, data=oscars_train)
+plot(h)
+# Area Under the Curve
+auc(h)
+```
+The ROC plot shows a definite improvement relative to the previous model, and the AUC is increased by ~3 percentage points (total of ~98%)
 
+Lastly, let us cross-validate
 ```{r}
 #FTrain
 model.glm.final.fTrain <- function(train_data) {
@@ -735,27 +685,11 @@ sd(scores)
 
 The average accuracy from the cross-validation approach (96.89%) is comparable to the accuracy shown in our model trained only from a single training set (96.93%). The standard deviation of the cross-validation accuracy is also quite low, suggesting that our model is not overfitting our data. 
 
-We still want to see how well our model discriminates at different thresholds:
-
-```{r}
-# ROC Curve
-prob=plogis(predict.glm(model.glm.final, type = c("response")))
-#head(prob)
-h <- roc(Oscars_won_some~prob, data=oscars_train)
-plot(h)
-# Area Under the Curve
-auc(h)
-```
-
-The ROC plot shows a definite improvement relative to the previous model, and the AUC is increased by ~3 percentage points (total of ~98%). 
-
-We also need to confirm that we aren't seeing a massive amount of multicollinearity:
-
+We also need to confirm that we aren't seeing a massive amount of multicollinearity
 ```{r}
 vif(model.glm.final)
 ```
-
-Due to the large values for `award_wins` and `Online_Film_Television_Association_nominated`, we should probably repeat the stepwise regression process using a subset of the variables that aren't the variables that are aggregated into `award_wins`, while keeping `award_wins` available for use by the stepwise variable selection process.
+Due to the large values for `award_wins` and `Online_Film_Television_Association_nominated`, we should probably repeat the stepwise regression process using a subset of the variables that are not the variables that are aggregated into `award_wins`, while keeping `award_wins` available for use by the stepwise variable selection process.
 
 ```{r}
 oscars_train2 <- oscars_train %>% select(-matches(".*nominated$"), -matches(".*won$"))
@@ -779,7 +713,7 @@ model.glm.final2 <- step(model.glm.null2, scope = formula(model.glm.all2), direc
 summary(model.glm.final2)
 ```
 
-Restricting our variable selection to reduce the multicollinearity we saw before, has the step-wise variable selection giving us a final model with only 4 variables. We discovered that all of the 'non-oscar'_nominated and 'non-oscar'_won categories sum to the values in `awards_nominations` and `awards_wins` during the EDA process, therefore we realize that it is likely inappropriate to keep them all in the model while also including `awards_wins` and/or `awards_nominations`. `awards_wins` is still statistically significant in both models.
+Restricting our variable selection to reduce the multicollinearity we saw before, has the step-wise variable selection giving us a final model with only 3 variables. We discovered that all of the 'non-Oscar'_nominated and 'non-Oscar'_won categories sum to the values in `awards_nominations` and `awards_wins` during the EDA process, therefore we realize that it is likely inappropriate to keep them all in the model while also including `awards_wins` and/or `awards_nominations`. `awards_wins` is still statistically significant in both models.
 
 ```{r}
 model.glm.final2.test <- predict.glm(model.glm.final2,oscars_test2,type='response')
@@ -788,6 +722,18 @@ cm$table
 cm$overall[1]
 cm$overall[5]
 ```
+
+Our Accuracy is still above the No Information Rate (AccuracyNull above), as with the previous model, but we did see a reduction of the overall prediction accuracy and true positive rates compared to the other step-wise model
+```{r}
+# ROC Curve
+prob=plogis(predict.glm(model.glm.final2, type = c("response")))
+#head(prob)
+h <- roc(Oscars_won_some~prob, data=oscars_train)
+plot(h)
+# Area Under the Curve
+auc(h)
+```
+AUC is lower than our initial forward selection model
 
 TODO: do this
 
@@ -814,20 +760,6 @@ mean(scores)
 sd(scores)
 ```
 
-Our Accuracy is still above the No Information Rate (AccuracyNull above), as with the previous model, but we did see a reduction of the overall prediction accuracy and true positive rates compared to the other step-wise model. 
-
-```{r}
-# ROC Curve
-prob=plogis(predict.glm(model.glm.final2, type = c("response")))
-#head(prob)
-h <- roc(Oscars_won_some~prob, data=oscars_train)
-plot(h)
-# Area Under the Curve
-auc(h)
-```
-
-AUC is lower than our initial forward selection model. 
-
 ```{r}
 vif(model.glm.final2)
 ```
@@ -836,7 +768,7 @@ The VIF statistic is improved relative to the previous model, as none of the var
 
 ## Random Forest
 
-Now we'll attempt to train a random forest model based on all the variables, and tune the hyperparameter `mtry` (the number of features used at each split).
+Now we will attempt to train a Random Forest model based on all the variables, and tune the hyperparameter `mtry` (the number of features used at each split).
 
 ```{r}
 # apparently randomForest function can't use `-` in variable names.
@@ -882,16 +814,14 @@ ranFor.hitrate <- function (model) {
 
 # The code from above is commented out because it takes a while to run
 # Its output is:
-#[1] 19 22 23 27 28 31 33 35 36 39 40 41 42 44 45 47 49 50 51 52 53 55 56 57 58 59 60 61 62 63
-#[31] 64 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80
+# [1]  2 12
 
-# Well... it seems a lot of different mtry give the same best score
-# Let's try it with 35
+# Let's try it with 12
 
 best.ranFor.model = randomForest(formula=Oscars_won_some~.,
                importance=TRUE, 
                proximity=TRUE,
-               mtry=35, 
+               mtry=12, 
                data=oscars_train.renamed)
 y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
 sum(y_test_pred==y_test)/length(y_test)
@@ -899,7 +829,22 @@ sum(y_test_pred==y_test)/length(y_test)
 # confusion matrix
 y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
 confusionMatrix(y_test_pred, y_test)
+```
+Random Forest improves our prediction accuracy over the stepwise logistic regression model.
 
+TODO: Well, now it seems it does not. The only changes are certificate as factor (the standardizing on the cross-val loop doesn't affect this). We either keep certificate as we encoded it before, or we try to hypertune mtry using cross-val?? Otherwise I don't see how we can get RF to perform better than LR and then have that nice conclusion about showing the importance of doing cross-val.
+
+TODO: Explain how and why we got a ROC Curve for RF. 
+```{r}
+#head(prob)
+h <- roc(oscars_train.renamed$Oscars_won_some, best.ranFor.model$votes[, 2])
+plot(h)
+# Area Under the Curve
+auc(h)
+```
+
+
+```{r}
 #fTrain
 model.ranFor.fTrain <- function(train_data) {
   set.seed(42)
@@ -908,7 +853,7 @@ model.ranFor.fTrain <- function(train_data) {
       formula=Oscars_won_some~.,
       importance=TRUE,
       proximity=TRUE,
-      mtry=35,
+      mtry=12,
       data=train_data))
 }
 
@@ -927,8 +872,10 @@ scores <- oscars.renamed %>% cross_validate(
 scores
 mean(scores)
 sd(scores)
+```
 
 
+```{r}
 # Computes the importance of each variable
 # by accuracy
 VI_F1 = importance(best.ranFor.model, type=1)
@@ -938,19 +885,6 @@ VI_F2 = importance(best.ranFor.model, type=2)
 # https://freakonometrics.hypotheses.org/19835
 barplot(t(VI_F2/sum(VI_F2)), cex.names=0.5)
 ```
-
-Random Forest improves our prediction accuracy over the stepwise logistic regression model. 
-
-How do we get a ROC Curve. 
-
-```{r}
-#head(prob)
-h <- roc(oscars_train.renamed$Oscars_won_some, best.ranFor.model$votes[, 2])
-plot(h)
-# Area Under the Curve
-auc(h)
-```
-
 
 # Conclusions 
 
