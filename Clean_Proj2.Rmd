@@ -859,46 +859,75 @@ oscars.renamed <- oscars %>%
   mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
   select(-`genre_Sci-Fi`)
 
-# We need to split the train data into training and testing so that
-# we don't use our test data for hypertuning mtry
-set.seed(42) 
-train.index <- createDataPartition(oscars_train.renamed$Oscars_won_some, p = .7, list = FALSE)
-train <- oscars_train.renamed[ train.index,]
-test  <- oscars_test.renamed[-train.index,]
-y_testt <- test$Oscars_won_some
-
-# Trains the model (low, med, high mtry numbers)
-ranFor.train <- function(mtry) {
+# Trains the model for each value of mtry
+ranFor.train <- function(mtry, train.data) {
   set.seed(42)
   return(randomForest(formula=Oscars_won_some~.,
                importance=TRUE, 
                proximity=TRUE,
                mtry=mtry, 
-               data=train))
+               data=train.data))
 }
 
 # Tests the model
-ranFor.hitrate <- function (model) {
-  y_test_pred <- predict(model,test, type='response')
-  return(sum(y_test_pred==y_testt)/length(y_testt))
+ranFor.hitrate <- function (model, test.data) {
+  y_test_pred <- predict(model,test.data, type='response')
+  return(sum(y_test_pred==test.data$Oscars_won_some)
+         /length(test.data$Oscars_won_some))
 }
 
+# Tunes mtry using cross validation on the training set
+# A list of the final mean cross-validated accuracies for each
+# value of mtry
+
 #scores = c()
+
+# This is the same cross-val loop used on the function cross_validate
+# But only on the training data
+
+#folds <- KFold(oscars_train.renamed$Oscars_won_some, n = 3, 
+#                 stratified = TRUE, seed = 42)
+# Gets a list with the number of folds
+#list_ = 1:length(folds)
 #for (i in seq(1,80)) {
-#  scores <- c(scores, ranFor.hitrate(ranFor.train(i)))
+  # Gets a list to store the cross-val accuracies for different combination
+  # of folds for training and testing
+#  scoress = c()
+  # For each fold
+#  for(j in list_){
+    # Gets the indexes for getting the training data
+#    list_train = list_[-j]
+#    train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
+    # Gets the index for the testing data
+#    test_index = folds[[j]]
+    # Splits between training and testing
+#    cv.train = oscars_train.renamed[train_index, ]
+#    cv.test = oscars_train.renamed[test_index, ]
+    # Standardizes the new data
+#    scaleParam <- preProcess(cv.train, method=c("center", "scale"))
+#    cv.train <- predict(scaleParam, cv.train)
+#    cv.test <- predict(scaleParam, cv.test)
+    # Trains the model for mtry=i
+#    trained.model <- ranFor.train(i, cv.train)
+    # Gets the cross-validated accuracies as a list
+#    scoress <- c(scoress, ranFor.hitrate(trained.model, cv.test))
+#  }
+  # Appends to the final list the mean of the cross validated accuracies
+  # for each mtry
+#  scores = c(scores, mean(scoress))
 #}
 #which(max(scores)==scores)
 
 # The code from above is commented out because it takes a while to run
 # Its output is:
-# [1]  2 12
+# [1]  47
 
-# Let's try it with 12
+# Let's try it 
 
 best.ranFor.model = randomForest(formula=Oscars_won_some~.,
                importance=TRUE, 
                proximity=TRUE,
-               mtry=12, 
+               mtry=47, 
                data=oscars_train.renamed)
 y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
 sum(y_test_pred==y_test)/length(y_test)
@@ -962,6 +991,14 @@ VI_F2 = importance(best.ranFor.model, type=2)
 # https://freakonometrics.hypotheses.org/19835
 barplot(t(VI_F2/sum(VI_F2)), cex.names=0.5)
 ```
+
+
+## Oversampling
+
+[Source](https://shiring.github.io/machine_learning/2017/04/02/unbalanced)
+
+
+
 
 # Conclusions 
 
