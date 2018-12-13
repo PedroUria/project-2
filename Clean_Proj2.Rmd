@@ -206,46 +206,112 @@ oscars <- oscars %>% mutate(
 )
 ```
 
-Now, let us encode `certificate`, which follows this [system](https://www.wikiwand.com/en/Motion_Picture_Association_of_America_film_rating_system) and this [one](https://www.wikiwand.com/en/TV_parental_guidelines_(US)#/TV-MA). That is, `certificate` is an ordinal variable and needs to be encoded as such (preserving the order). Well... actually, even if there is some order in it, we would not know how to interpret this order, and it could also be argued that there is no order to begin with, so we will turn it into a factor instead (which will then be one-hot-encoded by R when running Logistic Regression)
+Now, let us encode `certificate`, which follows this [system](https://www.wikiwand.com/en/Motion_Picture_Association_of_America_film_rating_system) and this [one](https://www.wikiwand.com/en/TV_parental_guidelines_(US)#/TV-MA). That is, `certificate` is an ordinal variable and needs to be encoded as such (preserving the order). Well... actually, here we had a very interesting discussion: even if there is some order in `certifiacte`, we would not know how to interpret this order, and it could also be argued that there is no order to begin with. Thus, we tried these tro approaches:
 
-Before doing so, we need to treat any missing values
+1. Turn certificate into a `factor`, which will then be one-hot-encoded by R when running Logistic Regression.
+2. Encode certificate presersving the order.
+
+It turned out that option 2. worked best, even when the order was not clear, it seemed it did have a say in the pattern our data followed. The difference was not really that great, but even so, small improvements on an accuracy range of 92% to 100% do matter. Below we proceed with approach 2.
+
+```{r}
+# Prints the unique values of the certificate column
+unique(oscars$certificate)
+# Prints the movies "Unrated" and "Not Rated"
+subset(oscars, certificate == "Not Rated")[c("movie")]
+subset(oscars, certificate == "Unrated")[c("movie")]
+```
+
+Let us get rid of these rows. They would only make us create more columns for `certificate`, as we cannot encode them (which integer would we assign them?), and they are not well known movies (aside from *The Great Beauty*...), and did not win any Oscars.
+```{r}
+# Gets the indexes of such rows
+not_rated_index = as.numeric(rownames(subset(oscars, certificate == "Not Rated")[c("movie")]))
+unrated_index =  as.numeric(rownames(subset(oscars, certificate == "Unrated")[c("movie")]))
+
+# Checks if any of them won an oscar
+for(i in 1:nrow(oscars[not_rated_index, ])){
+  if(oscars[not_rated_index, ]$Oscars_won_some[i] == "Yes"){
+    print("Yes")
+  }
+}
+for(i in 1:nrow(oscars[unrated_index, ])){
+  if(oscars[unrated_index, ]$Oscars_won_some[i] == "Yes"){
+    print("Yes")
+  }
+}
+```
+
+Assumption checked. Let us drop them.
+```{r}
+dim(oscars)
+# https://github.com/tidyverse/dplyr/issues/3196
+oscars = oscars %>% filter(certificate != "Not Rated" | is.na(certificate)) %>% filter(certificate != "Unrated" | is.na(certificate))
+dim(oscars)
+```
+
+Now let us treat the missing values...
 ```{r}
 unique(oscars$certificate)
 sum(is.na(oscars$certificate))
 ```
 
-We could try to impute them by looking them up on the web
+well, we could actually try to impute the missing values first. 
 ```{r}
 titles_missing_values = oscars[is.na(oscars$certificate), ]$movie
 titles_missing_values
 ```
 
-If we look up these titles in IMDB, two of them do not have any entry specifying rating, and the others are "Not Rated". This means that we can turn the NAs to `Not Rated`, and we should also turn the `Unrated` to `Not Rated`, in order not to create unneccessary dummy features
+If we look up these titles in IMDB, they are not rated. Let's check once again if they won any Oscars:
 ```{r}
-oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "Unrated", "Not Rated"))
-oscars$certificate[is.na(oscars$certificate)] = "Not Rated"
+for(i in titles_missing_values){
+  if(subset(oscars, movie == i)$Oscars_won_some == "Yes"){
+    print("Yes")}
+}
 ```
 
-When we tested our first model, we got this error: "Error in model.frame.default(Terms, newdata, na.action = na.action, xlev = object$xlevels) : factor certificate has new levels TV-MA". This was because there is only one movie with `certificate` = `TV-MA`
+The did not, so let's drop them too.
 ```{r}
-table(oscars$certificate)
+oscars = oscars %>% filter(is.na(certificate) == FALSE)
+dim(oscars)
 ```
 
-This movie is
+And finally let's encode it...
 ```{r}
-subset(oscars, certificate == "TV-MA")$movie
+unique(oscars$certificate)
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "PG-13", 3))
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "G", 1))
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "R", 4))
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "PG", 2))
+oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "TV-MA", 5))
+oscars$certificate = as.numeric(oscars$certificate)
+unique(oscars$certificate)
 ```
 
-and although it did win an Oscar and 5 other [awards](https://www.imdb.com/title/tt5278466/awards?ref_=tt_awd), TODO: our only option is to drop it
-```{r}
-oscars  = oscars[!(oscars$certificate=="TV-MA"),]
-```
 
-Finally, let us turn `certificate` into a factor
-```{r}
-oscars$certificate = factor(oscars$certificate)
-```
+In case you want to try approach 1., in the `.Rmd` file there is a function designed to do this. We have decided to hide it in the `.html` file and set not to run by default, but you can go to the `.Rdm` file and run it (without runing all the code above concerning `certificate`), and then look at the differences in results. Just uncomment the last line of code of the hidden code chunk.
+```{r eval=FALSE, include=FALSE}
+genre_factor = function(){
+  # Checking missing values
+  unique(oscars$certificate)
+  sum(is.na(oscars$certificate))
+  # We could try to impute them by looking them up on the web
+  titles_missing_values = oscars[is.na(oscars$certificate), ]$movie
+  titles_missing_values
+  # In this case we are keeping Not Rated and Unrated, so this will be a slightly different approach
+  # If we look up these titles in IMDB, two of them do not have any entry specifying rating, and the others are "Not Rated". This means that we can turn the NAs to `Not Rated`, and we should also turn the `Unrated` to `Not Rated`, in order not to create unneccessary dummy features
+  oscars = oscars %>% mutate(certificate = replace(certificate, certificate == "Unrated", "Not Rated"))
+  oscars$certificate[is.na(oscars$certificate)] = "Not Rated"
+  # When we tested our first model, we got this error: "Error in model.frame.default(Terms, newdata, na.action = na.action, xlev = object$xlevels) : factor certificate has new levels TV-MA". This was because there is only one movie with `certificate` = `TV-MA`
+  table(oscars$certificate)
+  # This movie is
+  subset(oscars, certificate == "TV-MA")$movie
+  # and although it did win an Oscar and 5 other [awards](https://www.imdb.com/title/tt5278466/awards?ref_=tt_awd), TODO: our only option is to drop it
+  # Note that this movie is the same one that gave us problems on genre (se below), so if you run this piece of code, it will already be dropped on the genre step, so it will give an error because we will be attepting to drop a movie that is not there, but this is no reason for concern
+  # Finally, let us turn `certificate` into a factor
+  return(factor(oscars$certificate))
+}
 
+#oscars$certificate = genre_factor()
+```
 
 Moving on to `genre`, now we will manually create dummy variables, because we have movies with more than one genre, and simply turning it into a factor would result on too many lavels
 ```{r}
@@ -318,7 +384,18 @@ for(i in names(gen)){
 }
 ```
 
-TODO: Lol, the movie I dropped above on certificate was the same one as the one below, so I  deleted the same process for `genre_documentary`.
+When we tried to run our model, we got this error: "Error in `contrasts<-`(`*tmp*`, value = contr.funs[1 + isOF[nn]]) : contrasts can be applied only to factors with 2 or more levels", and it was because there is only one movie that falls into the "documentary" genre, and thus only one level for `genre_documentary`
+```{r}
+table(oscars$genre_Documentary)
+```
+The movie in question is 
+```{r}
+subset(oscars, genre_Documentary == "Yes")$movie
+```
+and [here](https://www.imdb.com/title/tt5278466/awards) are the it received or was nominated for. As it is not that relevant and very annoying (TODO: Find a better way if there is one), let's drop it
+```{r}
+oscars <- oscars %>% select(-genre_Documentary)
+``` 
 
 The next feature that needs some manipulation is `gross`. The value of the dollar changed from 2000 to 2016, so we'll need to adjust the values we have to be based on a standard. We'll use the value of the dollar in the year 2000 as a common unit. To convert between 2001 through 2016 dollar amounts, and the 2000 dollar amounts we'll need something to use as a conversion factor. We'll use the Consumer Price Index (CPI) data provided by the United States Bureau of Labor Statistics, to get that conversion factor. Their [site](https://data.bls.gov/timeseries/CUUR0000SA0), provides CPI data by month output to an excel sheet. We've opted to include the Annual average, and base our conversion on that. After cleaning the data up in excel, we saved it off in CPI_20181201.csv, which we'll load now
 ```{r}
@@ -832,7 +909,7 @@ confusionMatrix(y_test_pred, y_test)
 ```
 Random Forest improves our prediction accuracy over the stepwise logistic regression model.
 
-TODO: Well, now it seems it does not. The only changes are certificate as factor (the standardizing on the cross-val loop doesn't affect this). We either keep certificate as we encoded it before, or we try to hypertune mtry using cross-val?? Otherwise I don't see how we can get RF to perform better than LR and then have that nice conclusion about showing the importance of doing cross-val.
+TODO: Mention that one might get different results depending on the computer...?!
 
 TODO: Explain how and why we got a ROC Curve for RF. 
 ```{r}
