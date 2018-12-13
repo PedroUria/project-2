@@ -959,7 +959,7 @@ model.ranFor.fTrain <- function(train_data) {
       formula=Oscars_won_some~.,
       importance=TRUE,
       proximity=TRUE,
-      mtry=12,
+      mtry=47,
       data=train_data))
 }
 
@@ -993,12 +993,185 @@ barplot(t(VI_F2/sum(VI_F2)), cex.names=0.5)
 ```
 
 
-## Oversampling
+## Dealing with Imbalance
 
-[Source](https://shiring.github.io/machine_learning/2017/04/02/unbalanced)
+### Sampling Methods
 
+[Source](https://www.analyticsvidhya.com/blog/2016/03/practical-guide-deal-imbalanced-classification-problems/)
 
+```{r}
+library(ROSE)
+table(oscars_train.renamed$Oscars_won_some)
+dim(oscars_train.renamed)
 
+# Let's do oversampling
+oscars_train_oversampled = ovun.sample(Oscars_won_some~., data=oscars_train.renamed, method="over", N=1594, seed=0)$data
+table(oscars_train_oversampled$Oscars_won_some)
+dim(oscars_train_oversampled)
+
+# Let's test it!
+sampling_test = function(data){
+  model <- 
+    glm(Oscars_won_some~awards_wins + 
+            Screen_Actors_Guild_won +
+            Golden_Globes_won +
+            genre_Drama +
+            Writers_Guild_won +
+            Online_Film_Television_Association_nominated +
+            BAFTA_won,
+          family = binomial(link = "logit"),
+          data = data)
+  
+      
+  ypred_test <- predict.glm(model,
+                                 oscars_test.renamed,type='response')
+  return(confusionMatrix(factor(ifelse(ypred_test >
+                                      0.5,"Yes","No")),y_test))
+}
+
+# No sampling
+conf_matrix = sampling_test(oscars_train)
+conf_matrix$overall[1]
+conf_matrix$overall[5]
+
+# Oversampling
+conf_matrix = sampling_test(oscars_train_oversampled)
+conf_matrix$table
+conf_matrix$overall[1]
+conf_matrix$overall[5]
+
+# Well, we got only 1 false negative! But more false positives... 
+
+# Undersampling
+oscars_train_undersampled = ovun.sample(Oscars_won_some~., data=oscars_train.renamed, method="under", N=134, seed=0)$data
+table(oscars_train_undersampled$Oscars_won_some)
+conf_matrix = sampling_test(oscars_train_undersampled)
+# I figured....!
+conf_matrix$table
+# Mmm, well we do need to cross-validate all of this!
+
+# Both
+oscars_train_under_over <- ovun.sample(Oscars_won_some ~ ., data = oscars_train.renamed, method = "both", p=0.5, seed=0)$data
+table(oscars_train_under_over$Oscars_won_some)
+conf_matrix = sampling_test(oscars_train_under_over)
+conf_matrix$table
+# Well..
+
+# Synthetic
+oscars_train_rose <- ROSE(Oscars_won_some~., data = oscars_train.renamed, seed = 0)$data
+table(oscars_train_rose$Oscars_won_some)
+conf_matrix = sampling_test(oscars_train_rose)
+conf_matrix$table
+# Shit, I had high hopes for this one
+```
+
+```{r}
+# Let's try with Random Forest...
+rf_sampling_test = function(data){
+  model <- ranFor.train(47, data)
+  y_test_pred <- predict(model,oscars_test.renamed,
+                         type='response')
+  return(confusionMatrix(y_test_pred, y_test))
+}
+
+# No sampling
+conf_matrix = rf_sampling_test(oscars_train.renamed)
+conf_matrix$table
+conf_matrix$overall[1]
+conf_matrix$overall[5]
+
+# Oversampling
+conf_matrix = rf_sampling_test(oscars_train_oversampled)
+conf_matrix$table
+conf_matrix$overall[1]
+conf_matrix$overall[5]
+
+# Undersampling
+conf_matrix = rf_sampling_test(oscars_train_undersampled)
+# Lol
+conf_matrix$table
+
+# Both
+conf_matrix = rf_sampling_test(oscars_train_under_over)
+conf_matrix$table
+
+# Synthetic
+conf_matrix = rf_sampling_test(oscars_train_rose)
+conf_matrix$overall[1]
+conf_matrix$overall[5]
+# Well this one is somewhat decent... but nah. 
+```
+
+So now we could cross-validate using sampling methods, but it doesn't make much sense since we are not going to improve the Multicoll LogReg we got. One last thing we can do, is perform the sampling... and then run Stepwise Reg!
+
+```{r}
+test_step_sampling = function(data){
+  # creating a null model
+  model.glm.null <-  glm(Oscars_won_some~1,
+                  family = binomial(link = "logit"), data = data)
+  # create a full model
+  model.glm.all <- glm(Oscars_won_some~.,
+                  family = binomial(link = "logit"), data = data)
+  
+  model.glm.final <- step(model.glm.null, scope = formula(model.glm.all),
+                          direction = "forward", k =
+                            log(nrow(oscars_train_oversampled)), trace =
+                            FALSE)
+  
+  model.glm.final.test <-
+    predict.glm(model.glm.final,oscars_test,type='response')
+  
+  return(confusionMatrix(factor(ifelse(model.glm.final.test >
+                                        0.5,"Yes","No")),y_test))
+  }
+# No sampling
+conf_matrix = test_step_sampling(oscars_train)
+conf_matrix$table
+conf_matrix$overall[1]
+conf_matrix$overall[5]
+
+# Oversampling
+conf_matrix = test_step_sampling(oscars_train_oversampled)
+conf_matrix$table
+conf_matrix$overall[1]
+conf_matrix$overall[5]
+#NOP!
+
+# Undersampling
+conf_matrix = test_step_sampling(oscars_train_undersampled)
+conf_matrix$table
+# Meh
+
+# Both
+conf_matrix = test_step_sampling(oscars_train_under_over)
+conf_matrix$table
+# :(
+
+# Synthetic
+conf_matrix = test_step_sampling(oscars_train_rose)
+conf_matrix$table
+# Nooop
+```
+
+So sampling methods are unsuccessful Such a shame.
+
+### Weights balanced
+
+```{r}
+wrf = randomForest(formula=Oscars_won_some~.,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=47, 
+               data=oscars_train.renamed, classwt = c(0.92, 0.08))
+y_test_pred <- predict(wrf,oscars_test.renamed, type='response')
+conf_matrix = confusionMatrix(y_test_pred, y_test)
+conf_matrix$table
+#NOP
+```
+
+No idea how to make this for Logistic Regression in R. Not even sure `classwt` is equivalent to `class_weight = balanced` in [sklearn](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html).  
+
+So after some thought and the experimental results we got, balancing may not be needed in our case... See [this](https://stats.stackexchange.com/questions/164693/adding-weights-to-logistic-regression-for-imbalanced-data). 
 
 # Conclusions 
 
