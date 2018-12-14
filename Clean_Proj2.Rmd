@@ -1,6 +1,6 @@
 ---
-title: "Oscars... WHAT?"
-date: "12/06/2018"
+title: "Predicting the Oscars"
+date: "12/14/2018"
 output:
   html_document:
     code_folding: hide
@@ -20,7 +20,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Stating the Question
 
-TODO: Revise to Question-first mind-set
+Can we predict whether a movie will win at least one Oscar?
 
 ## Objective
 
@@ -28,11 +28,11 @@ The goal of this project is to develop models to predict whether a movie will wi
 
 ## Motivation
 
-The motivation is to use these models to identify the most relevant features that make a movie win an Academy Award, and also to have an edge when betting for the next Oscars winners. TODO: more motivations...? 
+The main motivation is fun and also to have an edge when betting for the next Oscars winners. TODO: And to use these models to identify the most relevant features that make a movie win an Academy Award, and also 
 
 ## The Data
 
-Gathering the data was very straightforward in this case. After coming up with the idea for the project, a simple Google search of: *oscars machine learning* almost directly handed us the dataset. We quickly found [this article](https://medium.com/enrique-dans/and-this-years-oscar-goes-to-bigml-machine-learning-1823837ae3aa), which lead us to BigML. After signing up on their website, we were able to download the dataset for free. However, this would not mean that the data would be ready to be fed to our machine learning algorithms right away... which we quickly realized after doing some EDA. BigML combined data from IMDB with entries that specify whether a movie has won or has been nominated for some other awards previous to the Oscars.
+Gathering the data was very straightforward in this case. After coming up with the idea for the project, a simple Google search of: "*oscars machine learning*" almost directly handed us the dataset. We quickly found [this article](https://medium.com/enrique-dans/and-this-years-oscar-goes-to-bigml-machine-learning-1823837ae3aa), which lead us to BigML. After signing up on their website, we were able to download the dataset for free. However, this would not mean that the data would be ready to be fed to our machine learning algorithms right away... which we quickly realized after doing some EDA. BigML combined data from IMDB with entries that specify whether a movie has won or has been nominated for some other awards previous to the Oscars.
 
 # Exploratory Data Analysis (EDA)
 
@@ -103,11 +103,9 @@ Then we have 16 binary columns saying whether a movie won or was nominated for o
 7. Best Adapted Screenplay
 8. Best Original Screenplay
 
-As we are concerned with predicting whether a movie will win at least one Oscar or not, we will create such column (to be called `Oscars_won_some`) using these and drop them after doing so. Note that we are only using data from 8 categories... (TODO: argue this..?). With regards to the nominated columns... TODO: We didn't discuss this, did we? Maybe we can use the next feature (see below)
+As we are concerned with predicting whether a movie will win at least one Oscar or not, we will create such column (to be called `Oscars_won_some`) using these, and drop them after doing so. Note that we are only using data from 8 categories, which is what BigML had. Then we have another column called `Oscars_nominated`, which says for how many categories a movie was nominated for, including the ones not mentioned before. `Oscars_nominated_categories` is its analogous but on text form, indicating the specific nominated categories. We will also drop this one.
 
-Then we have another column called `Oscars_nominated`, which says for how many categories a movie was nominated for, including the ones not mentioned before. `Oscars_nominated_categories` is its analogous but on text form, indicating the specific nominated categories. We will also drop this one, TODO: right?. 
-
-The rest of the features all follow the same pattern: first we have `award_name_won`, which says how many categories of such award the movie won, and then we have `award_name_won_categories`, a string specifying these categories. `award_name_nominated` and `award_name_nominated_categories` are the same but for nominations instead of wins. We will only use the numerical features, and drop the categorical ones (TODO: mention the other approach too).
+The rest of the features all follow the same pattern: first we have `award_name_won`, which says how many categories of such award the movie won, and then we have `award_name_won_categories`, a string specifying these categories. `award_name_nominated` and `award_name_nominated_categories` are the same but for nominations instead of wins. We will only use the numerical features, and drop the categorical ones.
 
 ## Missing Values
 
@@ -144,7 +142,7 @@ t(oscars %>%
   summarise_all(sum))
 ```
 
-OK, so for now the data makes sense. However, it is very clear that our data is heavily imbalanced. That is, at best only 8 movies will have a `Yes` entry on the `Oscars_won_some` column (which we have not computed yet) for each year. TODO: Explain how we will deal with this later... examples: balancing the weights, oversampling? or maybe we don't need to.
+OK, so for now the data makes sense. However, it is very clear that our data is heavily imbalanced. That is, at best only 8 movies will have a `Yes` entry on the `Oscars_won_some` column (which we have not computed yet) for each year. At the end of the project will try to deal with this by applying sampling methods, and compare the results.
 
 Let's also make sure that `awards_wins` does not contain any information regarding the Oscars, as this would not be known to us when making future predictions
 ```{r echo=TRUE}
@@ -171,7 +169,7 @@ lord_of_the_rings_king[c("awards_wins")]
 # Prints the number of awards it won, not counting the Oscars
 num_awards_won
 ```
-(TODO: maybe do this for more movies, just to be sure). Good! This feature is fair and probably very important. 
+(TODO: maybe do this for more movies, just to be sure). Good! This feature is fair and probably very important. Maybe some dplyr magic... 
 
 # Data Preprocessing
 
@@ -304,7 +302,7 @@ genre_factor = function(){
   table(oscars$certificate)
   # This movie is
   subset(oscars, certificate == "TV-MA")$movie
-  # and although it did win an Oscar and 5 other [awards](https://www.imdb.com/title/tt5278466/awards?ref_=tt_awd), TODO: our only option is to drop it
+  # and although it did win an Oscar and 5 other [awards](https://www.imdb.com/title/tt5278466/awards?ref_=tt_awd), our only option is to drop it.
   # Note that this movie is the same one that gave us problems on genre (se below), so if you run this piece of code, it will already be dropped on the genre step, so it will give an error because we will be attepting to drop a movie that is not there, but this is no reason for concern
   # Finally, let us turn `certificate` into a factor
   return(factor(oscars$certificate))
@@ -392,7 +390,7 @@ The movie in question is
 ```{r}
 subset(oscars, genre_Documentary == "Yes")$movie
 ```
-and [here](https://www.imdb.com/title/tt5278466/awards) are the it received or was nominated for. As it is not that relevant and very annoying (TODO: Find a better way if there is one), let's drop it
+and [here](https://www.imdb.com/title/tt5278466/awards) are the it received or was nominated for. As it is not that relevant and very annoying, let's drop it
 ```{r}
 oscars <- oscars %>% select(-genre_Documentary)
 ``` 
@@ -427,6 +425,7 @@ oscars = oscars %>% mutate(
   sc.gross = gross * cpif(2000)/cpif(year) # "In 2000 dollars"
 ) %>% 
   # TODO: Should this be here? thinking to move it down
+  # Where would you like to put it? I think it's fine
   # mutate oscars won and oscars nominated cols/variables to factor types
   mutate_at(vars(matches(pat.oscar_won)), funs(factor)) %>%
   mutate_at(vars(matches(pat.oscar_nom)), funs(factor))
@@ -518,7 +517,6 @@ and finally let us make sure that we only have the features we want for predicti
 ```{r}
 #sapply(oscars, typeof) #Uncomment this line if you want to check the types
 ```
-TODO: again.. maybe we should drop the `Oscar_..._nominated` if we are only going to predict `Oscars_won_some` and use only `Oscar_nominated` instead. 
 
 ## Train and Test Split
 
@@ -540,7 +538,7 @@ y_test = oscars_test$Oscars_won_some
 
 ## Standardization
 
-The last step before we can train our models is standardizing. By default, R omits standardizing factor variables (TODO: Is this true?), so we do not need to be concerned about that. We will follow [this method](https://machinelearningmastery.com/pre-process-your-dataset-in-r/)
+The last step before we can train our models is standardizing. By default, R omits standardizing factor variables, so we do not need to be concerned about that. We will follow [this method](https://machinelearningmastery.com/pre-process-your-dataset-in-r/)
 ```{r}
 scaleParam <- preProcess(oscars_train, method=c("center", "scale"))
 oscars_train <- predict(scaleParam, oscars_train)
@@ -551,7 +549,7 @@ Well... it seems we are ready to train some Machine Learning models!
 
 # Model Building
 
-We decided to tackle the prediction problem using Logistic Regression and Random Forest classifiers due to the categorical nature of the dependent variable. Apart from using our train and test sets to evaluate our models, we will also use 3-fold stratified cross-validation to test the variance of our predictive accuracy. We chose stratified cross-validation to ensure the proportion of class labels is maintained in each of the splits. We chose 3-folds instead of the standard 10-folds, because if we were to use smaller splits we would TODO: this: risk having too few degrees of freedom to train the model, given the scarcity of the Oscar winners does not really make sense... by having more splits, we would have more training data and less testing data, so the issue would be that we would have too few testing data to get accurate metrics.
+We decided to tackle the prediction problem using Logistic Regression and Random Forest classifiers due to the categorical nature of the dependent variable. Apart from using our train and test sets to evaluate our models, we will also use 3-fold stratified cross-validation to test the variance of our predictive accuracy. We chose stratified cross-validation to ensure the proportion of class labels is maintained in each of the splits. We chose 3-folds instead of the standard 10-folds, because if we were to use smaller splits we would risk having too few testing data, and thus our metrics would not be accurate enough.
 
 ## Logistic Regression
 
@@ -590,7 +588,7 @@ cm$overall[1]
 cm$overall[5]
 ```
 
-The models hit rate is ~94%. But we need to consider that most of the movies in our dataset will not win an Oscar (~92%, as shown by AccuracyNull above). Our hit rate is higher than the percentage of movies that did not win Oscars, implying that our model's predictive capability, using a 50% threshold, is an improvement over simply using our target's distribution to predict the winners. TODO: Make clear that this means classifying all movies as not winners, because if we randomly choose 92% of the movies as not winners and 8% of the movies as winners, we will most likely end up with less that 92% accuracy!
+The models hit rate is ~94%. But we need to consider that most of the movies in our dataset will not win an Oscar (~92%, as shown by AccuracyNull above). Our hit rate is higher than the percentage of movies that did not win Oscars, implying that our model's predictive capability, using a 50% threshold, is an improvement over simply using our target's distribution to predict the winners (this means classifying all movies as not winners).
 
 Although we had a high True Negative rate (~97%), our True positive rate was lower (~62%). This does not show in our hit rate, because only ~8% of our movies actually won Oscars. Let us take a look at the ROC Curves, to see if a different threshold quantity would have a significant impact on the predictive capability of the model
 ```{r}
@@ -694,7 +692,7 @@ model.glm.null <-  glm(Oscars_won_some~1,
 model.glm.all <- glm(Oscars_won_some~.,
                 family = binomial(link = "logit"), data = oscars_train)
 ```
-Note that these warnings ... TODO
+Note that these warnings ... TODO: Explain why we should not worry about them
 
 ```{r include=FALSE}
 # use step to apply stepwise forward selection with BIC as a evaluation metric
@@ -790,7 +788,7 @@ model.glm.final2 <- step(model.glm.null2, scope = formula(model.glm.all2), direc
 summary(model.glm.final2)
 ```
 
-Restricting our variable selection to reduce the multicollinearity we saw before, has the step-wise variable selection giving us a final model with only 3 variables. We discovered that all of the 'non-Oscar'_nominated and 'non-Oscar'_won categories sum to the values in `awards_nominations` and `awards_wins` during the EDA process, therefore we realize that it is likely inappropriate to keep them all in the model while also including `awards_wins` and/or `awards_nominations`. `awards_wins` is still statistically significant in both models.
+Restricting our variable selection to reduce the multicollinearity we saw before, has the step-wise variable selection giving us a final model with only 4 variables. We discovered that all of the 'non-Oscar'_nominated and 'non-Oscar'_won categories sum to the values in `awards_nominations` and `awards_wins` during the EDA process, therefore we realize that it is likely inappropriate to keep them all in the model while also including `awards_wins` and/or `awards_nominations`. `awards_wins` is still statistically significant in both models.
 
 ```{r}
 model.glm.final2.test <- predict.glm(model.glm.final2,oscars_test2,type='response')
@@ -810,10 +808,12 @@ plot(h)
 # Area Under the Curve
 auc(h)
 ```
-AUC is lower than our initial forward selection model
-
-TODO: do this
-
+AUC is lower than our initial forward selection model. However, the VIF statistic is improved relative to the previous model, as none of the variables have VIF scores above 2
+```{r}
+vif(model.glm.final2)
+```
+ 
+Finlally let us cross validate this model 
 ```{r}
 # FTrain
 model.glm.final2.fTrain <- function(train_data) {
@@ -836,12 +836,7 @@ scores
 mean(scores)
 sd(scores)
 ```
-
-```{r}
-vif(model.glm.final2)
-```
-
-The VIF statistic is improved relative to the previous model, as none of the variables have VIF scores above 2. 
+So apart from this being a worse model in predictive performance, it also has a higher variance. Thus, for now, Logistic Regression using the correlated variables gives the best results. 
 
 ## Random Forest
 
