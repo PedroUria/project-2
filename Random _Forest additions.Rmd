@@ -1,0 +1,893 @@
+---
+title: "RF_additions"
+author: "Sean Pili"
+date: "December 14, 2018"
+output: html_document
+---
+## Random Forest
+
+Now we will attempt to train a Random Forest model based on all the variables, and tune the hyperparameter `mtry` (the number of features used at each split).
+
+```{r}
+# apparently randomForest function can't use `-` in variable names.
+oscars_train.renamed <- oscars_train %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+oscars_test.renamed <- oscars_test %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+oscars.renamed <- oscars %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+
+# Trains the model for each value of mtry
+ranFor.train <- function(mtry, train.data,treez=500) {
+  set.seed(42)
+  return(randomForest(formula=Oscars_won_some~.,
+               ntree=treez,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=mtry, 
+               data=train.data))
+}
+
+# Tests the model
+ranFor.hitrate <- function (model, test.data) {
+  y_test_pred <- predict(model,test.data, type='response')
+  return(sum(y_test_pred==test.data$Oscars_won_some)
+         /length(test.data$Oscars_won_some))
+}
+
+# Tunes mtry using cross validation on the training set
+# A list of the final mean cross-validated accuracies for each
+# value of mtry
+
+scores = c()
+
+# This is the same cross-val loop used on the function cross_validate
+# But only on the training data
+
+folds <- KFold(oscars_train.renamed$Oscars_won_some, n = 3, 
+                 stratified = TRUE, seed = 42)
+ #Gets a list with the number of folds
+list_ = 1:length(folds)
+for (i in seq(1,80)) {
+  # Gets a list to store the cross-val accuracies for different combination
+  # of folds for training and testing
+  scoress = c()
+  # For each fold
+  for(j in list_){
+    # Gets the indexes for getting the training data
+    list_train = list_[-j]
+    train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
+    # Gets the index for the testing data
+    test_index = folds[[j]]
+    # Splits between training and testing
+    cv.train = oscars_train.renamed[train_index, ]
+    cv.test = oscars_train.renamed[test_index, ]
+    # Standardizes the new data
+    scaleParam <- preProcess(cv.train, method=c("center", "scale"))
+    cv.train <- predict(scaleParam, cv.train)
+    cv.test <- predict(scaleParam, cv.test)
+    # Trains the model for mtry=i
+    trained.model <- ranFor.train(i, cv.train)
+    # Gets the cross-validated accuracies as a list
+    scoress <- c(scoress, ranFor.hitrate(trained.model, cv.test))
+  }
+  # Appends to the final list the mean of the cross validated accuracies
+  # for each mtry
+  scores = c(scores, mean(scoress))
+}
+which(max(scores)==scores)
+
+# The code from above is commented out because it takes a while to run
+# Its output is:
+# [1]  47
+
+# Let's try it 
+set.seed(42)
+best.ranFor.model = randomForest(formula=Oscars_won_some~.,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=47, 
+               data=oscars_train.renamed)
+y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
+sum(y_test_pred==y_test)/length(y_test)
+
+# confusion matrix
+y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
+confusionMatrix(y_test_pred, y_test)
+```
+Random Forest improves our prediction accuracy over the stepwise logistic regression model.
+
+TODO: Mention that one might get different results depending on the computer...?!
+
+TODO: Explain how and why we got a ROC Curve for RF. 
+```{r}
+#head(prob)
+h <- roc(oscars_train.renamed$Oscars_won_some, best.ranFor.model$votes[, 2])
+plot(h)
+# Area Under the Curve
+auc(h)
+```
+
+
+```{r}
+#fTrain
+model.ranFor.fTrain <- function(train_data) {
+  set.seed(42)
+  return(
+    randomForest(
+      formula=Oscars_won_some~.,
+      importance=TRUE,
+      proximity=TRUE,
+      mtry=47,
+      data=train_data))
+}
+
+#fHitRate
+model.ranFor.fHitRate <- function(pred_y, orig_y) {
+  a <- sum(pred_y==orig_y)
+  b <- length(orig_y)
+  return (a/b)
+}
+
+scores <- oscars.renamed %>% cross_validate(
+  fTrain = model.ranFor.fTrain,
+  fHitRate = model.ranFor.fHitRate
+)
+
+scores
+mean(scores)
+sd(scores)
+```
+
+
+```{r}
+# Computes the importance of each variable
+# by accuracy
+VI_F1 = importance(best.ranFor.model, type=1)
+# by impurity
+VI_F2 = importance(best.ranFor.model, type=2)
+
+# https://freakonometrics.hypotheses.org/19835
+barplot(t(VI_F2/sum(VI_F2)), cex.names=0.5)
+```
+
+### Random Forest with 1000 trees. 
+```{r}
+# Tunes mtry using cross validation on the training set
+# A list of the final mean cross-validated accuracies for each
+# value of mtry
+
+scores = c()
+
+# This is the same cross-val loop used on the function cross_validate
+# But only on the training data
+
+folds <- KFold(oscars_train.renamed$Oscars_won_some, n = 3, 
+                 stratified = TRUE, seed = 42)
+ #Gets a list with the number of folds
+list_ = 1:length(folds)
+for (i in seq(1,80)) {
+  # Gets a list to store the cross-val accuracies for different combination
+  # of folds for training and testing
+  scoress = c()
+  # For each fold
+  for(j in list_){
+    # Gets the indexes for getting the training data
+    list_train = list_[-j]
+    train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
+    # Gets the index for the testing data
+    test_index = folds[[j]]
+    # Splits between training and testing
+    cv.train = oscars_train.renamed[train_index, ]
+    cv.test = oscars_train.renamed[test_index, ]
+    # Standardizes the new data
+    scaleParam <- preProcess(cv.train, method=c("center", "scale"))
+    cv.train <- predict(scaleParam, cv.train)
+    cv.test <- predict(scaleParam, cv.test)
+    # Trains the model for mtry=i
+    trained.model <- ranFor.train(i, cv.train,1000)
+    # Gets the cross-validated accuracies as a list
+    scoress <- c(scoress, ranFor.hitrate(trained.model, cv.test))
+  }
+  # Appends to the final list the mean of the cross validated accuracies
+  # for each mtry
+  scores = c(scores, mean(scoress))
+}
+which(max(scores)==scores)
+
+# The code from above is commented out because it takes a while to run
+# Its output is:
+# [1] 14 32 46
+
+# Let's try it with 14 nodes, to create a more "sparse" model
+set.seed(42)
+best.ranFor.model_1k = randomForest(formula=Oscars_won_some~.,
+               ntree = 1000,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=14, 
+               data=oscars_train.renamed)
+y_test_pred <- predict(best.ranFor.model_1k,oscars_test.renamed, type='response')
+sum(y_test_pred==y_test)/length(y_test)
+
+# confusion matrix
+y_test_pred <- predict(best.ranFor.model_1k,oscars_test.renamed, type='response')
+confusionMatrix(y_test_pred, y_test)
+#accuracy is .9700
+```
+Our forest with 1000 trees has slighly less accuracy than our than when running our random forest with 500 trees. We thought our accuracy would improve if more trees were added.
+
+TODO: Mention that one might get different results depending on the computer...?!
+
+TODO: Explain how and why we got a ROC Curve for RF. 
+```{r}
+#head(prob)
+h <- roc(oscars_train.renamed$Oscars_won_some, best.ranFor.model_1k$votes[, 2])
+
+plot(h)
+# Area Under the Curve
+auc(h)
+# auc of .9753, marginally better than our random forest with 500 trees yielding an AUC of .9744
+```
+
+
+```{r}
+#fTrain
+model.ranFor.fTrain <- function(train_data) {
+  set.seed(42)
+  return(
+    randomForest(
+      formula=Oscars_won_some~.,
+      ntree = 1000,
+      importance=TRUE,
+      proximity=TRUE,
+      mtry=14,
+      data=train_data))
+}
+
+#fHitRate
+model.ranFor.fHitRate <- function(pred_y, orig_y) {
+  a <- sum(pred_y==orig_y)
+  b <- length(orig_y)
+  return (a/b)
+}
+
+scores <- oscars.renamed %>% cross_validate(
+  fTrain = model.ranFor.fTrain,
+  fHitRate = model.ranFor.fHitRate
+)
+
+scores
+mean(scores)
+sd(scores)
+
+```
+Strangely, although we had a slightly higher average cross-validated accuracy for the random forest model with 1000 trees (.9600 v. .9584), but a higher standard deviation ( .0152 v. .0134)
+
+```{r}
+# Computes the importance of each variable
+# by accuracy
+VI_F1 = importance(best.ranFor.model_1k, type=1)
+# by impurity
+VI_F2 = importance(best.ranFor.model_1k, type=2)
+
+VI_F2 = VI_F2/sum(VI_F2)
+
+rns = rownames(VI_F2)
+VI_F2 = cbind(VI_F2,data.frame(rns))
+VI_F2[,1] = VI_F2[,1]/sum(VI_F2[,1])
+
+
+# https://freakonometrics.hypotheses.org/19835
+
+top5 = VI_F2[which(VI_F2[,1]%in%sort(VI_F2[,1])[(nrow(VI_F2)-4):nrow(VI_F2)]),]
+top5[1,2]
+barplot(top5[,1],names= top5[,2],cex.names=.75, main= "5 most important features according to decrease in gini index")
+
+```
+The most important features (in order) for predicting our target in our random forest model with 1000 trees are whether a film won at least one screen actors guild award, the number of non-oscar awards a film won before the oscars were released whether a film won at least one golden globe, the number of non-oscar award nominations a film won before the oscars were released, whether a film won the golden globes, whether a film was nominated, and whether a fim was nominated for at leat one director's guild award. 
+
+# Random forests Par 2: RF without the separate awards from other organizations. 
+
+Now we will attempt to train a Random Forest model based on all the variables, and tune the hyperparameter `mtry` (the number of features used at each split).
+
+```{r}
+# apparently randomForest function can't use `-` in variable names.
+oscars2 <- oscars %>% select(-matches(".*nominated$"), -matches(".*won$"))
+oscars_train.renamed2 <- oscars_train2 %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+oscars_test.renamed2 <- oscars_test2 %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+oscars.renamed2 <- oscars2 %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+
+# Trains the model for each value of mtry
+
+
+# Tunes mtry using cross validation on the training set
+# A list of the final mean cross-validated accuracies for each
+# value of mtry
+
+scores = c()
+
+# This is the same cross-val loop used on the function cross_validate
+# But only on the training data
+# not really sure when I get 3 warnings regarding mtry... we should be able to run it 
+# with all 32 features
+folds <- KFold(oscars_train.renamed2$Oscars_won_some, n = 3, 
+                 stratified = TRUE, seed = 42)
+ #Gets a list with the number of folds
+list_ = 1:length(folds)
+for (i in seq(1,31)) {
+  # Gets a list to store the cross-val accuracies for different combination
+  # of folds for training and testing
+  scoress = c()
+  # For each fold
+  for(j in list_){
+    # Gets the indexes for getting the training data
+    list_train = list_[-j]
+    train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
+    # Gets the index for the testing data
+    test_index = folds[[j]]
+    # Splits between training and testing
+    cv.train = oscars_train.renamed2[train_index, ]
+    cv.test = oscars_train.renamed2[test_index, ]
+    # Standardizes the new data
+    scaleParam <- preProcess(cv.train, method=c("center", "scale"))
+    cv.train <- predict(scaleParam, cv.train)
+    cv.test <- predict(scaleParam, cv.test)
+    # Trains the model for mtry=i
+    trained.model <- ranFor.train(i, cv.train)
+    # Gets the cross-validated accuracies as a list
+    scoress <- c(scoress, ranFor.hitrate(trained.model, cv.test))
+  }
+  # Appends to the final list the mean of the cross validated accuracies
+  # for each mtry
+  scores = c(scores, mean(scoress))
+}
+which(max(scores)==scores)
+
+# The code from above is commented out because it takes a while to run
+# Its output is:
+# [1]  26
+
+# Let's try it 
+set.seed(42)
+best.ranFor.model2 = randomForest(formula=Oscars_won_some~.,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=26, 
+               data=oscars_train.renamed2)
+y_test_pred <- predict(best.ranFor.model2,oscars_test.renamed2, type='response')
+sum(y_test_pred==y_test)/length(y_test)
+
+# confusion matrix
+y_test_pred <- predict(best.ranFor.model2,oscars_test.renamed2, type='response')
+confusionMatrix(y_test_pred, y_test)
+```
+Although our model is technically still useful as our classification rate is 94.76%, our true positive rate is slightly less than 50% (47.62%!)
+
+TODO: Mention that one might get different results depending on the computer...?!
+
+TODO: Explain how and why we got a ROC Curve for RF. 
+```{r}
+#head(prob)
+h <- roc(oscars_train.renamed2$Oscars_won_some, best.ranFor.model2$votes[, 2])
+plot(h)
+# Area Under the Curve
+auc(h)
+```
+Our AUC indicates our model is still useful, but this is the worst AUC of every model we have compared, random forest, or logistic regression. 
+
+```{r}
+#fTrain
+model.ranFor.fTrain <- function(train_data) {
+  set.seed(42)
+  return(
+    randomForest(
+      formula=Oscars_won_some~.,
+      importance=TRUE,
+      proximity=TRUE,
+      mtry=26,
+      data=train_data))
+}
+
+#fHitRate
+model.ranFor.fHitRate <- function(pred_y, orig_y) {
+  a <- sum(pred_y==orig_y)
+  b <- length(orig_y)
+  return (a/b)
+}
+
+scores <- oscars.renamed2 %>% cross_validate(
+  fTrain = model.ranFor.fTrain,
+  fHitRate = model.ranFor.fHitRate
+)
+
+scores
+mean(scores)
+sd(scores)
+```
+Although our average cross-validated accuracy drops to .9488, the standard deviation of our scores drops as well (.0097), so our results from the reduced model with 500 trees are less sensitive to changes in our training data than both random forests using all of the features alebit less accurate than both models overall.
+
+```{r}
+# Computes the importance of each variable
+# by accuracy
+VI_F1 = importance(best.ranFor.model2, type=1)
+# by impurity
+VI_F2 = importance(best.ranFor.model2, type=2)
+
+VI_F2 = VI_F2/sum(VI_F2)
+
+rns = rownames(VI_F2)
+VI_F2 = cbind(VI_F2,data.frame(rns))
+VI_F2[,1] = VI_F2[,1]/sum(VI_F2[,1])
+
+
+# https://freakonometrics.hypotheses.org/19835
+
+top5 = VI_F2[which(VI_F2[,1]%in%sort(VI_F2[,1])[(nrow(VI_F2)-4):nrow(VI_F2)]),]
+barplot(top5[,1],names= top5[,2],cex.names=.75, main= "5 most important features according to decrease in gini index")
+
+# https://freakonometrics.hypotheses.org/19835
+
+```
+The most important variables (in order) are as follows: the total number of non-oscar awards a film won before the oscars were distributed, the total number of nominations for non-oscar awards a film received before the oscars were distributed, the film's gross box-office revenue in (year) 2000 dollars, the film's imdb critic review score, and the duration of a film in minutes. 
+
+### Random Forest on dataset with 32 varibles and 1000 trees. 
+```{r}
+# Tunes mtry using cross validation on the training set
+# A list of the final mean cross-validated accuracies for each
+# value of mtry
+
+scores = c()
+
+# This is the same cross-val loop used on the function cross_validate
+# But only on the training data
+
+folds <- KFold(oscars_train.renamed2$Oscars_won_some, n = 3, 
+                 stratified = TRUE, seed = 42)
+ #Gets a list with the number of folds
+list_ = 1:length(folds)
+for (i in seq(1,31)) {
+  # Gets a list to store the cross-val accuracies for different combination
+  # of folds for training and testing
+  scoress = c()
+  # For each fold
+  for(j in list_){
+    # Gets the indexes for getting the training data
+    list_train = list_[-j]
+    train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
+    # Gets the index for the testing data
+    test_index = folds[[j]]
+    # Splits between training and testing
+    cv.train = oscars_train.renamed2[train_index, ]
+    cv.test = oscars_train.renamed2[test_index, ]
+    # Standardizes the new data
+    scaleParam <- preProcess(cv.train, method=c("center", "scale"))
+    cv.train <- predict(scaleParam, cv.train)
+    cv.test <- predict(scaleParam, cv.test)
+    # Trains the model for mtry=i
+    trained.model <- ranFor.train(i, cv.train,1000)
+    # Gets the cross-validated accuracies as a list
+    scoress <- c(scoress, ranFor.hitrate(trained.model, cv.test))
+  }
+  # Appends to the final list the mean of the cross validated accuracies
+  # for each mtry
+  scores = c(scores, mean(scoress))
+}
+which(max(scores)==scores)
+
+# The code from above is commented out because it takes a while to run
+# Its output is:
+# [1] 26
+# Interestingly, using 26 variables at individual split yielded the best cross-validated error with 1000 trees and 500 trees.
+
+set.seed(42)
+best.ranFor.model2_1k = randomForest(formula=Oscars_won_some~.,
+               ntree = 1000,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=26, 
+               data=oscars_train.renamed2)
+y_test_pred <- predict(best.ranFor.model2_1k,oscars_test.renamed2, type='response')
+sum(y_test_pred==y_test)/length(y_test)
+
+# confusion matrix
+y_test_pred <- predict(best.ranFor.model2_1k,oscars_test.renamed, type='response')
+confusionMatrix(y_test_pred, y_test)
+#accuracy is .97476, same as with 500 trees, maybe something is wrong here? 
+# the true and false positive rates are exactly the same!!!
+```
+Our forest trained without the *won* and *nominated* variables for each individual non-oscar organization with 1000 trees was less accurate than the random forest including 1000 trees including those variables. Additionally, our reduced model with 1000 trees has the exact same accuracy as with 500 trees, the true/false positive rates are exactly the same, either this a miracle, or an error was committed. 
+
+TODO: Mention that one might get different results depending on the computer...?!
+
+TODO: Explain how and why we got a ROC Curve for RF. 
+```{r}
+#head(prob)
+h <- roc(oscars_train.renamed2$Oscars_won_some, best.ranFor.model2_1k$votes[, 2])
+h <- roc(oscars_train.renamed2$Oscars_won_some, best.ranFor.model2$votes[, 2])
+
+plot(h)
+# Area Under the Curve
+auc(h)
+```
+AUC of .9382, marginally better than our random forest with 500 trees, yielding an AUC of .9357, so at least we know we are getting different results from the algorithm when we change ntree.  
+
+Although our model is still useful because our AUC is above .92, it is much lower than the AUC's of the random forest models including all of the won and nominated awards for non-oscar organizations.
+
+
+```{r}
+#fTrain
+model.ranFor.fTrain <- function(train_data) {
+  set.seed(42)
+  return(
+    randomForest(
+      formula=Oscars_won_some~.,
+      ntree = 1000,
+      importance=TRUE,
+      proximity=TRUE,
+      mtry=26,
+      data=train_data))
+}
+
+#fHitRate
+model.ranFor.fHitRate <- function(pred_y, orig_y) {
+  a <- sum(pred_y==orig_y)
+  b <- length(orig_y)
+  return (a/b)
+}
+
+scores <- oscars.renamed2 %>% cross_validate(
+  fTrain = model.ranFor.fTrain,
+  fHitRate = model.ranFor.fHitRate
+)
+
+scores
+mean(scores)
+sd(scores)
+
+```
+The reduced random forest model with 1000 trees had a slightly higher average cross-validated accuracy than the the random forest model with 500 trees trees (.9505 v. .9488) and a slightly lower standard deviation (.0088 v. .0097), meaning that it is a better predictor and less sensitive to changes in training data. 
+
+Between all of the random forest models, it has the lowest standard deviation of its cross-validated accuracy, meaning it is the most reliable. It also has the third lowest mean cross-validated accuracy, though it is only 0.95% less accurate than our best model, the random forest with 1000 trees using all of the features in our dataset. 
+
+
+```{r}
+# Computes the importance of each variable
+# by accuracy
+VI_F1 = importance(best.ranFor.model2_1k, type=1)
+# by impurity
+VI_F2 = importance(best.ranFor.model2_1k, type=2)
+
+VI_F2 = VI_F2/sum(VI_F2)
+
+rns = rownames(VI_F2)
+VI_F2 = cbind(VI_F2,data.frame(rns))
+VI_F2[,1] = VI_F2[,1]/sum(VI_F2[,1])
+
+
+# https://freakonometrics.hypotheses.org/19835
+
+top5 = VI_F2[which(VI_F2[,1]%in%sort(VI_F2[,1])[(nrow(VI_F2)-4):nrow(VI_F2)]),]
+barplot(top5[,1],names= top5[,2],cex.names=.75, main= "5 most important features according to decrease in gini index")
+
+```
+The most important variables (in order) in predicting our target using a random forest trained using data excluding non-oscar award variables from individual orgnizations using 1000 trees are exactly the same as our rnadom forest ran on the same data using 500 trees: the total number of non-oscar awards a film won before the oscars were distributed, the total number of nominations for non-oscar awards a film received before the oscars were distributed, the film's gross box-office revenue in (year) 2000 dollars, the film's imdb critic review score, and the duration of a film in minutes. 
+
+
+### Random Forest Part 3: getting rid of the aggregated award_wins and award_noinations
+
+```{r}
+# apparently randomForest function can't use `-` in variable names.
+oscars3 <-oscars %>% select(-c(awards_wins,awards_nominations))
+oscars_train3 <- oscars_train %>% select(-c(awards_wins,awards_nominations))
+oscars_test3 <- oscars_test %>% select(-c(awards_wins,awards_nominations))
+
+oscars_train.renamed3 <- oscars_train3 %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+oscars_test.renamed3 <- oscars_test3 %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+oscars.renamed3 <- oscars3 %>% 
+  mutate(genre_Sci_Fi = `genre_Sci-Fi`) %>% 
+  select(-`genre_Sci-Fi`)
+
+# Trains the model for each value of mtry
+ranFor.train <- function(mtry, train.data,treez=500) {
+  set.seed(42)
+  return(randomForest(formula=Oscars_won_some~.,
+               ntree=treez,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=mtry, 
+               data=train.data))
+}
+
+# Tests the model
+ranFor.hitrate <- function (model, test.data) {
+  y_test_pred <- predict(model,test.data, type='response')
+  return(sum(y_test_pred==test.data$Oscars_won_some)
+         /length(test.data$Oscars_won_some))
+}
+
+# Tunes mtry using cross validation on the training set
+# A list of the final mean cross-validated accuracies for each
+# value of mtry
+
+scores = c()
+
+# This is the same cross-val loop used on the function cross_validate
+# But only on the training data
+
+folds <- KFold(oscars_train.renamed3$Oscars_won_some, n = 3, 
+                 stratified = TRUE, seed = 42)
+ #Gets a list with the number of folds
+list_ = 1:length(folds)
+for (i in seq(1,78)) {
+  # Gets a list to store the cross-val accuracies for different combination
+  # of folds for training and testing
+  scoress = c()
+  # For each fold
+  for(j in list_){
+    # Gets the indexes for getting the training data
+    list_train = list_[-j]
+    train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
+    # Gets the index for the testing data
+    test_index = folds[[j]]
+    # Splits between training and testing
+    cv.train = oscars_train.renamed3[train_index, ]
+    cv.test = oscars_train.renamed3[test_index, ]
+    # Standardizes the new data
+    scaleParam <- preProcess(cv.train, method=c("center", "scale"))
+    cv.train <- predict(scaleParam, cv.train)
+    cv.test <- predict(scaleParam, cv.test)
+    # Trains the model for mtry=i
+    trained.model <- ranFor.train(i, cv.train)
+    # Gets the cross-validated accuracies as a list
+    scoress <- c(scoress, ranFor.hitrate(trained.model, cv.test))
+  }
+  # Appends to the final list the mean of the cross validated accuracies
+  # for each mtry
+  scores = c(scores, mean(scoress))
+}
+which(max(scores)==scores)
+
+# The code from above is commented out because it takes a while to run
+# Its output is:
+# [1]  36
+
+# Let's try it 
+set.seed(42)
+best.ranFor.model = randomForest(formula=Oscars_won_some~.,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=36, 
+               data=oscars_train.renamed3)
+y_test_pred <- predict(best.ranFor.model,oscars_test.renamed3, type='response')
+sum(y_test_pred==y_test)/length(y_test)
+#wow... the prediction accuracy was 97.75%
+
+# confusion matrix
+y_test_pred <- predict(best.ranFor.model,oscars_test.renamed, type='response')
+confusionMatrix(y_test_pred, y_test)
+```
+Our Random Forest grown with 500 trees using 36 variables at each split on our dataset without the aggregated non-oscar award variables improves our prediction accuracy over the stepwise logistic regression model as well as all previous random forest models. 
+
+TODO: Mention that one might get different results depending on the computer...?!
+
+TODO: Explain how and why we got a ROC Curve for RF. 
+```{r}
+#head(prob)
+h <- roc(oscars_train.renamed$Oscars_won_some, best.ranFor.model$votes[, 2])
+plot(h)
+# Area Under the Curve
+auc(h)
+```
+The random forest grown with 500 trees using 36 variables at each split using the dataset without the aggregated non-oscar awards variables has a higher AUC than both random forests that excluded those variables but didn't use the individual award variables. 
+
+The above Random Forest's AUC is almost identical, yet slightly less than the AUC of the rnadom forest trained with 500 trees on the full training set (.9751 to .9753 respectively)
+
+```{r}
+#fTrain
+model.ranFor.fTrain <- function(train_data) {
+  set.seed(42)
+  return(
+    randomForest(
+      formula=Oscars_won_some~.,
+      importance=TRUE,
+      proximity=TRUE,
+      mtry=47,
+      data=train_data))
+}
+
+#fHitRate
+model.ranFor.fHitRate <- function(pred_y, orig_y) {
+  a <- sum(pred_y==orig_y)
+  b <- length(orig_y)
+  return (a/b)
+}
+
+scores <- oscars.renamed3 %>% cross_validate(
+  fTrain = model.ranFor.fTrain,
+  fHitRate = model.ranFor.fHitRate
+)
+
+scores
+mean(scores)
+sd(scores)
+```
+Our Random Forest grown with 500 trees using 36 variables at each split trained on our a datset without the aggregated non-oscar awards had the highest mean cross-validated prediction accuracy and had the lowest standard deviation of its prediction accuracy by a wide margin (roughly 1/2 as much as the next best model.) 
+
+```{r}
+# Computes the importance of each variable
+# by accuracy
+VI_F1 = importance(best.ranFor.model, type=1)
+# by impurity
+VI_F2 = importance(best.ranFor.model, type=2)
+
+VI_F2 = VI_F2/sum(VI_F2)
+
+rns = rownames(VI_F2)
+VI_F2 = cbind(VI_F2,data.frame(rns))
+VI_F2[,1] = VI_F2[,1]/sum(VI_F2[,1])
+
+
+# https://freakonometrics.hypotheses.org/19835
+
+top5 = VI_F2[which(VI_F2[,1]%in%sort(VI_F2[,1])[(nrow(VI_F2)-4):nrow(VI_F2)]),]
+barplot(top5[,1],names= top5[,2],cex.names=.75, main= "5 most important features according to decrease in gini index")
+```
+The five most important features in our random forest trained on our dataset without the aggregated non-oscar award variables using 500 trees (in order) are as follows: whether a movie won a screen actors guild award, whether a movie won a golden globe, wether a movie is nominated for a director's guild award, whether a movie was nominated for the best director oscar award and whether a movie won a critic's choice award. 
+### Random Forest with 1000 trees. 
+```{r}
+# Tunes mtry using cross validation on the training set
+# A list of the final mean cross-validated accuracies for each
+# value of mtry
+
+scores = c()
+
+# This is the same cross-val loop used on the function cross_validate
+# But only on the training data
+
+folds <- KFold(oscars_train.renamed3$Oscars_won_some, n = 3, 
+                 stratified = TRUE, seed = 42)
+ #Gets a list with the number of folds
+list_ = 1:length(folds)
+for (i in seq(1,78)) {
+  # Gets a list to store the cross-val accuracies for different combination
+  # of folds for training and testing
+  scoress = c()
+  # For each fold
+  for(j in list_){
+    # Gets the indexes for getting the training data
+    list_train = list_[-j]
+    train_index = c(folds[[list_train[1]]], folds[[list_train[2]]])
+    # Gets the index for the testing data
+    test_index = folds[[j]]
+    # Splits between training and testing
+    cv.train = oscars_train.renamed3[train_index, ]
+    cv.test = oscars_train.renamed3[test_index, ]
+    # Standardizes the new data
+    scaleParam <- preProcess(cv.train, method=c("center", "scale"))
+    cv.train <- predict(scaleParam, cv.train)
+    cv.test <- predict(scaleParam, cv.test)
+    # Trains the model for mtry=i
+    trained.model <- ranFor.train(i, cv.train,1000)
+    # Gets the cross-validated accuracies as a list
+    scoress <- c(scoress, ranFor.hitrate(trained.model, cv.test))
+  }
+  # Appends to the final list the mean of the cross validated accuracies
+  # for each mtry
+  scores = c(scores, mean(scoress))
+}
+which(max(scores)==scores)
+
+# The code from above is commented out because it takes a while to run
+# Its output is:
+# [1] 22
+
+set.seed(42)
+best.ranFor.model3_1k = randomForest(formula=Oscars_won_some~.,
+               ntree = 1000,
+               importance=TRUE, 
+               proximity=TRUE,
+               mtry=22, 
+               data=oscars_train.renamed3)
+y_test_pred <- predict(best.ranFor.model3_1k,oscars_test.renamed3, type='response')
+sum(y_test_pred==y_test)/length(y_test)
+
+# confusion matrix
+y_test_pred <- predict(best.ranFor.model3_1k,oscars_test.renamed3, type='response')
+confusionMatrix(y_test_pred, y_test)
+#accuracy is .9775
+```
+Our random forest trained on the data without the aggregated non-oscar award variables using 1000 trees has the same accuracy as with 500 trees (.9775.) Both of these random forests have the highest accuracy on our test set. 
+
+TODO: Mention that one might get different results depending on the computer...?!
+
+TODO: Explain how and why we got a ROC Curve for RF. 
+```{r}
+#head(prob)
+h <- roc(oscars_train.renamed$Oscars_won_some, best.ranFor.model3_1k$votes[, 2])
+
+plot(h)
+# Area Under the Curve
+auc(h)
+# auc of .9771, best overall
+```
+ Our random forest trained on the data without the aggregated non-oscar award variables using 1000 trees had the highest overall AUC (.9771), meaning that it was the best at discriminating both true positives and true negatives at all thresholds.
+
+```{r}
+#fTrain
+model.ranFor.fTrain <- function(train_data) {
+  set.seed(42)
+  return(
+    randomForest(
+      formula=Oscars_won_some~.,
+      ntree = 1000,
+      importance=TRUE,
+      proximity=TRUE,
+      mtry=22,
+      data=train_data))
+}
+
+#fHitRate
+model.ranFor.fHitRate <- function(pred_y, orig_y) {
+  a <- sum(pred_y==orig_y)
+  b <- length(orig_y)
+  return (a/b)
+}
+
+scores <- oscars.renamed3 %>% cross_validate(
+  fTrain = model.ranFor.fTrain,
+  fHitRate = model.ranFor.fHitRate
+)
+
+scores
+mean(scores)
+sd(scores)
+
+```
+Strangely, by increasing the number of trees in our random forest trained on our data without the aggregated non-oscar award variables from 500 to 1000, our mean cross-validated prediction accuracy dropped and the standard deviation of that error essentially tripled! 
+
+Additionally, it is odd that the mean cross-validated prediction accuracy is identical to our random forest using 1000 trees that excluded the individual non-oscar award variables. 
+
+
+
+```{r}
+# Computes the importance of each variable
+# by accuracy
+VI_F1 = importance(best.ranFor.model_1k, type=1)
+# by impurity
+VI_F2 = importance(best.ranFor.model3_1k, type=2)
+
+VI_F2 = VI_F2/sum(VI_F2)
+
+rns = rownames(VI_F2)
+VI_F2 = cbind(VI_F2,data.frame(rns))
+VI_F2[,1] = VI_F2[,1]/sum(VI_F2[,1])
+
+
+# https://freakonometrics.hypotheses.org/19835
+
+top5 = VI_F2[which(VI_F2[,1]%in%sort(VI_F2[,1])[(nrow(VI_F2)-4):nrow(VI_F2)]),]
+barplot(top5[,1],names= top5[,2],cex.names=.75, main= "5 most important features according to decrease in gini index")
+
+```
+The most important features (in order) for predicting our target in our random forest model trained on our dataset without the aggregated non-oscar award variables with 1000 trees are exactly the same as when we ran a random forest with 500 trees on the same data:  whether a film won at least one screen actors guild award, the number of non-oscar awards a film won before the oscars were released whether a film won at least one golden globe, the number of non-oscar award nominations a film won before the oscars were released, whether a film won the golden globes, whether a film was nominated, and whether a fim was nominated for at leat one director's guild award. 
+
+## Oversampling
+
+[Source](https://shiring.github.io/machine_learning/2017/04/02/unbalanced)
+
+# Conclusions 
+
