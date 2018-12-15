@@ -20,19 +20,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Stating the Question
 
-Can we predict whether a movie will win at least one Oscar?
+Can we predict if a movie will win at least one Oscar?
 
-## Objective
+## Data
 
-The goal of this project is to develop models to predict whether a movie will win some kind of Oscar award or not. In order to achieve this, we will use a dataset that [BigMl](https://bigml.com/) [put together](https://bigml.com/user/academy_awards/gallery/dataset/5a94302592fb565ed400103b) and used to train a deep neural network to get [perfect predictions](https://blog.bigml.com/2018/03/01/predicting-the-2018-oscar-winners/) for the 8 categories they targeted for 2018. However, this does not mean their model is perfect, as ..... (TODO: source for where they say even they were surprised?).
+We will use a dataset that [BigMl](https://bigml.com/) [put together](https://bigml.com/user/academy_awards/gallery/dataset/5a94302592fb565ed400103b) and used to train a deep neural network to get [perfect predictions](https://blog.bigml.com/2018/03/01/predicting-the-2018-oscar-winners/) for the 8 categories they targeted for 2018 using data on oscar eligible films from the years 2000-2017. However, this does not mean their model is perfect, as the prediction accuracy on their training set was not 100% when they tested their model on years prior to 2018.
 
-## Motivation
+Note: the oscars have 24 categories, and this dataset only recorded whether a film won 8 of those awards.
 
-The main motivation is fun and also to have an edge when betting for the next Oscars winners. TODO: And to use these models to identify the most relevant features that make a movie win an Academy Award, and also 
-
-## The Data
-
-Gathering the data was very straightforward in this case. After coming up with the idea for the project, a simple Google search of: "*oscars machine learning*" almost directly handed us the dataset. We quickly found [this article](https://medium.com/enrique-dans/and-this-years-oscar-goes-to-bigml-machine-learning-1823837ae3aa), which lead us to BigML. After signing up on their website, we were able to download the dataset for free. However, this would not mean that the data would be ready to be fed to our machine learning algorithms right away... which we quickly realized after doing some EDA. BigML combined data from IMDB with entries that specify whether a movie has won or has been nominated for some other awards previous to the Oscars.
+Although our data came from a machine learning company, it still needed a plethora of pre-processing before random forest or logistic regression models could be trained on it.
 
 # Exploratory Data Analysis (EDA)
 
@@ -91,8 +87,22 @@ oscars <- read_csv("oscars.csv", col_types = cols())
 #View(head(oscars)) # Go to the .Rdm file and uncomment this line
 # if you want to have a look at the data
 dim(oscars)
-#sapply(oscars, typeof) # Same here
 ```
+
+We have 16 binary features saying whether a movie won or was nominated for one of the following Oscars' categories:
+
+1. Best Picture  
+2. Best Director  
+3. Best Actor  
+4. Best Actress  
+5. Best Supporting Actor  
+6. Best Supporting Actress  
+7. Best Adapted Screenplay
+8. Best Original Screenplay
+
+As we are concerned with predicting whether a movie will win at least one Oscar or not, we will create such column (to be called `Oscars_won_some`) using these, and drop them after doing so. Note that we are only using data from 8 categories, which is what BigML had. Then we have another column called `Oscars_nominated`, which says for how many categories a movie was nominated for, including the ones not mentioned before. `Oscars_nominated_categories` is its analogous but on text form, indicating the specific nominated categories. We will also drop this one.
+
+The rest of the features all follow the same pattern: first we have `award_name_won`, which says how many categories of such award the movie won, and then we have `award_name_won_categories`, a string specifying these categories. `award_name_nominated` and `award_name_nominated_categories` are the same but for nominations instead of wins. We will only use the numerical features, and drop the categorical ones.
 
 This table summarizes some of the actions we will take to clean up the data:
 
@@ -110,22 +120,6 @@ This table summarizes some of the actions we will take to clean up the data:
 | movie_id                  | Dropped due to irrelevance. [Feature Manipulation]      |
 | synopsis                  | Dropped due to irrelevance. [Feature Manipulation]      |
 | release_date              | Dropped due to irrelevance. [Feature Manipulation]      |
-
-
-We have 16 binary features saying whether a movie won or was nominated for one of the following Oscars' categories:
-
-1. Best Picture  
-2. Best Director  
-3. Best Actor  
-4. Best Actress  
-5. Best Supporting Actor  
-6. Best Supporting Actress  
-7. Best Adapted Screenplay
-8. Best Original Screenplay
-
-As we are concerned with predicting whether a movie will win at least one Oscar or not, we will create such column (to be called `Oscars_won_some`) using these, and drop them after doing so. Note that we are only using data from 8 categories, which is what BigML had. Then we have another column called `Oscars_nominated`, which says for how many categories a movie was nominated for, including the ones not mentioned before. `Oscars_nominated_categories` is its analogous but on text form, indicating the specific nominated categories. We will also drop this one.
-
-The rest of the features all follow the same pattern: first we have `award_name_won`, which says how many categories of such award the movie won, and then we have `award_name_won_categories`, a string specifying these categories. `award_name_nominated` and `award_name_nominated_categories` are the same but for nominations instead of wins. We will only use the numerical features, and drop the categorical ones.
 
 ## Missing Values
 
@@ -329,7 +323,7 @@ oscars$certificate = as.numeric(oscars$certificate)
 #unique(oscars$certificate)
 ```
 
-*Note: The code for attempting approach 1 is available in the Rmd file, but will not run for the html file. To run it define the function `certicate_factor`, and uncomment the line that executes it.*
+*Note: The code for attempting approach 1 is available in the Rmd file, but will not run for the html file. To run it use the function `certificate_factor` by uncommenting the line that executes it.*
 
 ```{r eval=FALSE, include=FALSE}
 certificate_factor = function(){
@@ -1045,7 +1039,7 @@ plot_top_5_imp = function(VI_F2){
   top5 = VI_F2[which(VI_F2[,1]%in%sort(VI_F2[,1])[(nrow(VI_F2)-4):nrow(VI_F2)]),]
   top5[1,2]
   # https://freakonometrics.hypotheses.org/19835
-  barplot(top5[,1],names= top5[,2],cex.names=.5,
+  barplot(top5[,1],names= top5[,2],cex.names=.4,
           main= "5 most important features according to decrease in gini index"
     )
 }
@@ -1053,7 +1047,9 @@ plot_top_5_imp = function(VI_F2){
 plot_top_5_imp(imp(best.ranFor.model))
 ```
 
-TODO Sean, write something less worse...
+The 5 most important features for predicting our target, using our random forest model with 500 trees (in descending order) are the number of screen actor's guild awards a movie won, the total number of non-oscar awards a movie won, the number of golden globes a movie won, the total number of non-oscar awards a movie won and the number of directors guild awards a movie won.
+
+Obviously, the number of non-oscar awards won by a movie from a specific organization is going to be correlated with the total number of non-oscar awards won by that movie (same with nominations), so interpreting individual feature importances is not entirely clear, but since we grew 500 trees that used roughly half of the variables at each split, we have reason to believe that at least some trees were grown without using the aggregated variables in the initial splits (giving the plethora of individual non-oscar award variables a chance to yield the best initial split and yield the highest decrease in the gini index.)
 
 ### Random Forest with 1000 trees
 
@@ -1122,15 +1118,11 @@ mean(scores)
 sd(scores)
 ```
 
-
-
-TODO: Until we fix the random thing... Strangely, although we had a slightly higher average cross-validated accuracy for the random forest model with 1000 trees (.9600 v. .9584), but a higher standard deviation ( .0152 v. .0134)
-
 ```{r}
 plot_top_5_imp(imp(best.ranFor.model_1k))
 ```
 
-The most important features (in order) for predicting our target in our random forest model with 1000 trees are whether a film won at least one screen actors guild award, the number of non-oscar awards a film won before the oscars were released whether a film won at least one golden globe, the number of non-oscar award nominations a film won before the oscars were released, whether a film won the golden globes, whether a film was nominated, and whether a fim was nominated for at leat one director's guild award. 
+The most important features (in order) for predicting our target in our random forest model with 1000 trees are exactly the same as for the random forest model with 500 trees. We are not sure whether this means the random forest with 500 trees was able to separate the aggregated and individual non-oscar awards well enough to fix our collinearity problem, or if we simply have not run a random forest with enough trees.
 
 ## Dealing with Imbalance
 
@@ -1312,16 +1304,21 @@ conf_matrix$table
 
 # Conclusion
 
-In conclusion, the model that consistently had the most predictive capability was a Logistic Regression Model using variables selected via Stepwise Forward Selection. We base that conclusion on that model having the highest accuracy and lowest standard  the cross-validated accuracy and standard deviation values shown in the table below. The results highlight the importance of using Cross Validated results when selecting models, as we based on that model
+The model that consistently had the most predictive capability was a Logistic Regression Model using variables selected via Stepwise Forward Selection (number 6 in the table below). We base this statement on the fact that this model’s cross-validated accuracies have the highest mean and the lowest standard deviation. The model also provides the highest AUC.  
 
-| Model Type           | Var Selection           |  Num Vars | CV Accuracy | CV Stdev | AUC    |
-|----------------------|-------------------------|-----------|-------------|----------|--------|
-| Logistic Reg         | None                    | 81        | N/A         | N/A      | N/A    |
-| Logistic Reg         | Manual                  | 12        | 0.9458      | 0.0130   | 0.9548 |
-| Logistic Reg         | Manual & Forward (BIC)  | 4         | 0.9529      | 0.0094   | 0.9582 |
-| Random Forest        | 35 random per split     | 81        | 0.9609      | 0.0122   | 0.9740 |
-| Random Forest (1000) | 14 random per split     | 81        | 0.9636      | 0.0100   | 0.9754 |
-| Logistic Reg         | Forward (BIC)           | 7         | 0.9689      | 0.0040   | 0.9815 |
+| Num | Model Type           | Var Selection           |  Num Vars | CV Accuracy | CV Stdev | AUC    |
+|-----|----------------------|-------------------------|-----------|-------------|----------|--------|
+| 1.  | Logistic Reg         | None                    | 81        | N/A         | N/A      | N/A    |
+| 2.  | Logistic Reg         | Manual                  | 12        | 0.9458      | 0.0130   | 0.9548 |
+| 3.  | Logistic Reg         | Manual & Forward (BIC)  | 4         | 0.9529      | 0.0094   | 0.9582 |
+| 4.  | Random Forest        | 35 random per split     | 81        | 0.9609      | 0.0122   | 0.9740 |
+| 5.  | Random Forest (1000) | 14 random per split     | 81        | 0.9636      | 0.0100   | 0.9754 |
+| 6.  | Logistic Reg         | Forward (BIC)           | 7         | 0.9689      | 0.0040   | 0.9815 |
 
-correlated, feature importance
+Prior to using the cross-validated data to compare the models, it appeared that Random Forest with 500 trees was the best predictive model we had trained, but as we can see from the table above, this is not the case. This highlights the importance of using cross validation when evaluating and comparing different models, to ensure we have a more generalizable model that is not overfitting the training data.
+
+It is also worth mentioning, that even if model 6 fails its multicollinearity assumption, that is only problematic when using our model to make inference regarding the relationships between our features and the target variable, such as identifying the most relevant features. Since we are trying to create a model that is useful only in predicting the oscars, we are not overly concerned by the multicollinearity in this case.   
+
+To sum up, we were able to train a model with a decent predictive power relative to the no information rate in our model. 
+
 
