@@ -94,15 +94,25 @@ dim(oscars)
 #sapply(oscars, typeof) # Same here
 ```
 
-TODO: Table/improve text
-So we have 1183 rows and 119 features. `year` will be useful to make a train-test split later, but we will drop it after that. `movie` and `movie_id` will also be dropped as they are not relevant for prediction. We will need to encode `certificate`, while `duration` is already in a suitable form, and `genre` will have to be converted to dummy variables. `rate` and `metascore` are also fine. We will also drop `synopsis`, which is very unlikely to matter significantly. `votes` is also fine, while `gross` will need to be modified to account for inflation over the years. We will also drop `release_date` but will use `release_date.month` (at the end of the features) to create a new column `season`, which is known to be a relevant factor in winning an Oscar. `release_date.year`, `release_date.day-of-month` and `release_date.day-of-week` will also be dropped. `user_reviews`, `critic_reviews` and `popularity` are also numerical metrics that come from IMDB, and thus are already on their suitable form. By visual inspection, `awards_wins` and `awards_nominations` seem to count the number of awards and nominations other than the Oscars, but we will have to make sure of this. 
+This table summarizes some of the actions we will take to clean up the data:
 
-| Variable       | Notes/Actions to Take                              | 
-| ---------------| ---------------------------------------------------|
-| year           | Useful for split/train later [Train and Test Split]|
-| movie          |                                                    |
+| Variable                  | Notes/Actions to Take                                   | 
+| --------------------------| --------------------------------------------------------|
+| year                      | Used for Splitting data.  [Train and Test Split]        |
+| certificate               | Encode as factor/numeric. [Feature Manipulation]        |
+| genre                     | One-hot encode. [Feature Manipulation]                  |
+| gross                     | Modify to account for inflation. [Feature Manipulation] |
+| release_date.month        | Use to create `season`. [Feature Manipulation]          |
+| release_date.year         | Dropped due to irrelevance. [Feature Manipulation]      |
+| release_date.day-of-month | Dropped due to irrelevance. [Feature Manipulation]      |
+| release_date.day-of-week  | Dropped due to irrelevance. [Feature Manipulation]      |
+| movie                     | Dropped due to irrelevance. [Feature Manipulation]      |
+| movie_id                  | Dropped due to irrelevance. [Feature Manipulation]      |
+| synopsis                  | Dropped due to irrelevance. [Feature Manipulation]      |
+| release_date              | Dropped due to irrelevance. [Feature Manipulation]      |
 
-Then we have 16 binary columns saying whether a movie won or was nominated for one of the following Oscars' categories:
+
+We have 16 binary features saying whether a movie won or was nominated for one of the following Oscars' categories:
 
 1. Best Picture  
 2. Best Director  
@@ -1119,6 +1129,7 @@ TODO: Until we fix the random thing... Strangely, although we had a slightly hig
 ```{r}
 plot_top_5_imp(imp(best.ranFor.model_1k))
 ```
+
 The most important features (in order) for predicting our target in our random forest model with 1000 trees are whether a film won at least one screen actors guild award, the number of non-oscar awards a film won before the oscars were released whether a film won at least one golden globe, the number of non-oscar award nominations a film won before the oscars were released, whether a film won the golden globes, whether a film was nominated, and whether a fim was nominated for at leat one director's guild award. 
 
 ## Dealing with Imbalance
