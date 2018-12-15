@@ -2,7 +2,10 @@
 title: "Predicting the Oscars"
 author: "Nuisance Parameters"
 date: "December 1, 2018"
-output: ioslides_presentation
+output:
+  ioslides_presentation: default
+  slidy_presentation: default
+  beamer_presentation: default
 ---
 
 ```{r setup, include=FALSE}
@@ -269,6 +272,7 @@ Can we predict if a movie will win at least one Oscar?
     - Awards previously won
     - Awards previously nominated for
     - Other data from imdb
+- 92% of Movies didn't win oscars
     
 ## LogReg: Manual (12 Vars)
 
